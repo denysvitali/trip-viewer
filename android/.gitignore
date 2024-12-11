@@ -13,3 +13,7 @@ key.properties
 **/*.jks
 *.keystore
 *.jks
+
+
+/build
+/.kotlin
