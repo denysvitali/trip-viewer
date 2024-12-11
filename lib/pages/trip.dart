@@ -78,7 +78,7 @@ class TripPageState extends State<TripPage> {
     });
   }
 
-  void reloadTrip(String newTripId) {
+  void reloadTrip(String? newTripId) {
     setState(() {
       // Reset any existing state
       plan = null;
@@ -143,50 +143,56 @@ class TripPageState extends State<TripPage> {
     Map<String, PlaceMetadata> pm =
         getPlaceMetadata(plan!.resources.placeMetadata);
 
-    return DefaultTabController(
-      length: plan!.tripPlan.itinerary.sections.length,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text('${plan!.tripPlan.title} ($tripId)'),
-          bottom: TabBar(
-            isScrollable: true,
-            tabs: plan!.tripPlan.itinerary.sections.map((section) {
-              return Tab(
-                text: getSectionTitle(section),
-              );
-            }).toList(),
+    return RefreshIndicator(
+      onRefresh: () async {
+        reloadTrip(tripId);
+      },
+      child: DefaultTabController(
+        length: plan!.tripPlan.itinerary.sections.length,
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text('${plan!.tripPlan.title} ($tripId)'),
+            bottom: TabBar(
+              isScrollable: true,
+              tabs: plan!.tripPlan.itinerary.sections.map((section) {
+                return Tab(
+                  text: getSectionTitle(section),
+                );
+              }).toList(),
+            ),
           ),
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: TabBarView(
-            children: plan!.tripPlan.itinerary.sections.map((section) {
-              List<Widget> initialSections = [
-                _sectionHeader(context, section),
-              ];
-              return ListView.builder(
-                itemBuilder: (context, index) {
-                  if (index < initialSections.length) {
-                    return initialSections[index];
-                  }
-                  Block block = section.blocks[index - initialSections.length];
+          body: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TabBarView(
+              children: plan!.tripPlan.itinerary.sections.map((section) {
+                List<Widget> initialSections = [
+                  _sectionHeader(context, section),
+                ];
+                return ListView.builder(
+                  itemBuilder: (context, index) {
+                    if (index < initialSections.length) {
+                      return initialSections[index];
+                    }
+                    Block block =
+                        section.blocks[index - initialSections.length];
 
-                  if (block is PlaceBlock) {
-                    PlaceMetadata? placeMd = pm[block.place.placeId];
-                    return renderPlace(block, placeMd);
-                  }
-                  if (block is NoteBlock) {
-                    return NoteBlockWidget(block: block);
-                  }
-                  if (block is FlightBlock) {
-                    return FlightBlockWidget(flightBlock: block);
-                  }
-                  return ListTile(
-                      title: Text('Unknown block type ${block.type}'));
-                },
-                itemCount: section.blocks.length + initialSections.length,
-              );
-            }).toList(),
+                    if (block is PlaceBlock) {
+                      PlaceMetadata? placeMd = pm[block.place.placeId];
+                      return renderPlace(block, placeMd);
+                    }
+                    if (block is NoteBlock) {
+                      return NoteBlockWidget(block: block);
+                    }
+                    if (block is FlightBlock) {
+                      return FlightBlockWidget(flightBlock: block);
+                    }
+                    return ListTile(
+                        title: Text('Unknown block type ${block.type}'));
+                  },
+                  itemCount: section.blocks.length + initialSections.length,
+                );
+              }).toList(),
+            ),
           ),
         ),
       ),
