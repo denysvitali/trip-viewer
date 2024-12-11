@@ -21,7 +21,7 @@ const apiUrl = "https://wanderlog.com/api/tripPlans/";
 const bool isProduction = bool.fromEnvironment('dart.vm.product');
 
 class TripPageState extends State<TripPage> {
-  TripPlan? plan;
+  TripPlanResponse? plan;
   String? tripId;
 
   @override
@@ -66,7 +66,7 @@ class TripPageState extends State<TripPage> {
       // Parse response
       final tripData = jsonDecode(response.body);
       // Update state with trip data
-      TripPlan fetchedPlan = TripPlanResponse.fromJson(tripData).tripPlan;
+      TripPlanResponse fetchedPlan = TripPlanResponse.fromJson(tripData);
       setState(() {
         plan = fetchedPlan;
       });
@@ -135,14 +135,16 @@ class TripPageState extends State<TripPage> {
     if (plan == null) {
       return const Center(child: CircularProgressIndicator());
     }
+    Map<String, PlaceMetadata> pm =
+        getPlaceMetadata(plan!.resources.placeMetadata);
     return DefaultTabController(
-      length: plan!.itinerary.sections.length,
+      length: plan!.tripPlan.itinerary.sections.length,
       child: Scaffold(
         appBar: AppBar(
-          title: Text('${plan!.title} ($tripId)'),
+          title: Text('${plan!.tripPlan.title} ($tripId)'),
           bottom: TabBar(
             isScrollable: true,
-            tabs: plan!.itinerary.sections.map((section) {
+            tabs: plan!.tripPlan.itinerary.sections.map((section) {
               return Tab(
                 text: getSectionTitle(section),
               );
@@ -152,13 +154,14 @@ class TripPageState extends State<TripPage> {
         body: Padding(
           padding: const EdgeInsets.all(8.0),
           child: TabBarView(
-            children: plan!.itinerary.sections.map((section) {
+            children: plan!.tripPlan.itinerary.sections.map((section) {
               return ListView.builder(
                 itemBuilder: (context, index) {
                   Block block = section.blocks[index];
 
                   if (block is PlaceBlock) {
-                    return placeBlock(block);
+                    PlaceMetadata? placeMd = pm[block.placeId];
+                    return renderPlace(block, placeMd);
                   }
                   if (block is NoteBlock) {
                     return NoteBlockWidget(block: block);
@@ -178,11 +181,6 @@ class TripPageState extends State<TripPage> {
     );
   }
 
-  Widget placeBlock(PlaceBlock block) {
-    PlaceBlock placeBlock = block;
-    return renderPlace(placeBlock);
-  }
-
   String getSectionTitle(Section section) {
     if (section.date != null) {
       if (section.heading != "") {
@@ -193,11 +191,20 @@ class TripPageState extends State<TripPage> {
     return section.heading;
   }
 
-  Widget renderPlace(PlaceBlock placeBlock) {
+  Widget renderPlace(PlaceBlock placeBlock, PlaceMetadata? metadata) {
     if (placeBlock.hotel != null) {
       return HotelBlock(placeBlock: placeBlock);
     }
-    return PlaceBlockWidget(placeBlock: placeBlock);
+    return PlaceBlockWidget(placeBlock: placeBlock, metadata: metadata);
+  }
+
+  Map<String, PlaceMetadata> getPlaceMetadata(
+      List<PlaceMetadata> placemetadata) {
+    Map<String, PlaceMetadata> pm = {};
+    for (PlaceMetadata p in placemetadata) {
+      pm[p.placeId] = p;
+    }
+    return pm;
   }
 }
 

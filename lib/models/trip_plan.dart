@@ -2,20 +2,43 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'trip_plan.g.dart';
 
+@JsonSerializable()
 class TripPlanResponse {
   final TripPlan tripPlan;
+  final Resources resources;
 
-  const TripPlanResponse({required this.tripPlan});
-
-  factory TripPlanResponse.fromJson(Map<String, dynamic> json) {
-    return TripPlanResponse(
-      tripPlan: json['tripPlan'] != null
-          ? TripPlan.fromJson(json['tripPlan'])
-          : throw ArgumentError('tripPlan is null'),
-    );
-  }
+  const TripPlanResponse({required this.tripPlan, required this.resources});
+  factory TripPlanResponse.fromJson(Map<String, dynamic> json) =>
+      _$TripPlanResponseFromJson(json);
 }
 
+@JsonSerializable()
+class PlaceMetadata {
+  final int id;
+  final String name;
+  final String placeId;
+  final String? description;
+
+  PlaceMetadata({
+    required this.id,
+    required this.name,
+    required this.placeId,
+    required this.description,
+  });
+  factory PlaceMetadata.fromJson(Map<String, dynamic> json) =>
+      _$PlaceMetadataFromJson(json);
+}
+
+@JsonSerializable()
+class Resources {
+  final List<PlaceMetadata> placeMetadata;
+
+  Resources({required this.placeMetadata});
+  factory Resources.fromJson(Map<String, dynamic> json) =>
+      _$ResourcesFromJson(json);
+}
+
+@JsonSerializable()
 class TripPlan {
   final String title;
   final int viewCount;
@@ -25,27 +48,23 @@ class TripPlan {
     this.viewCount = 0,
     required this.itinerary,
   });
-  factory TripPlan.fromJson(Map<String, dynamic> json) {
-    return TripPlan(
-      title: json['title'],
-      viewCount: json['viewCount'],
-      itinerary: Itinerary.fromJson(json['itinerary']),
-    );
-  }
+  factory TripPlan.fromJson(Map<String, dynamic> json) =>
+      _$TripPlanFromJson(json);
 }
 
+@JsonSerializable()
 class Itinerary {
   final List<Section> sections;
   const Itinerary({required this.sections});
-  factory Itinerary.fromJson(Map<String, dynamic> json) {
-    return Itinerary(sections: getSections(json['sections']));
-  }
+  factory Itinerary.fromJson(Map<String, dynamic> json) =>
+      _$ItineraryFromJson(json);
 }
 
 List<Section> getSections(List<dynamic> json) {
   return json.map((section) => Section.fromJson(section)).toList();
 }
 
+@JsonSerializable()
 class Section {
   final String heading;
   final List<Block> blocks;
@@ -53,13 +72,8 @@ class Section {
 
   const Section(
       {required this.heading, required this.date, required this.blocks});
-  factory Section.fromJson(Map<String, dynamic> json) {
-    return Section(
-      date: json['date'],
-      heading: json['heading'],
-      blocks: getBlocks(json['blocks']),
-    );
-  }
+  factory Section.fromJson(Map<String, dynamic> json) =>
+      _$SectionFromJson(json);
 }
 
 List<Block> getBlocks(List<dynamic> json) {
@@ -78,19 +92,22 @@ Block getBlock(Map<String, dynamic> json) {
   return Block.fromJson(json);
 }
 
+@JsonSerializable()
 class Block {
   final String type;
   final List<String> imageKeys;
-  Block({required this.type, List<String>? imageKeys})
-      : imageKeys = imageKeys ?? List.empty(growable: true);
+  Block({required this.type, this.imageKeys = const []});
 
   factory Block.fromJson(Map<String, dynamic> json) {
-    return Block(
-      type: json['type'],
-      imageKeys: json['imageKeys'] != null
-          ? List<String>.from(json['imageKeys'])
-          : List.empty(growable: true),
-    );
+    switch (json['type']) {
+      case 'place':
+        return PlaceBlock.fromJson(json);
+      case 'flight':
+        return FlightBlock.fromJson(json);
+      case 'note':
+        return NoteBlock.fromJson(json);
+    }
+    return Block(type: json['type'], imageKeys: json['image_keys'] ?? []);
   }
 }
 
@@ -98,9 +115,12 @@ class Block {
 class PlaceBlock extends Block {
   final GooglePlace place;
   final Hotel? hotel;
+  @JsonKey(name: 'place_id')
+  final String? placeId;
   PlaceBlock({
     required this.place,
     required this.hotel,
+    required this.placeId,
     super.imageKeys,
   }) : super(type: 'place');
 

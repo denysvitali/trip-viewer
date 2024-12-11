@@ -6,14 +6,103 @@ part of 'trip_plan.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
+TripPlanResponse _$TripPlanResponseFromJson(Map<String, dynamic> json) =>
+    TripPlanResponse(
+      tripPlan: TripPlan.fromJson(json['tripPlan'] as Map<String, dynamic>),
+      resources: Resources.fromJson(json['resources'] as Map<String, dynamic>),
+    );
+
+Map<String, dynamic> _$TripPlanResponseToJson(TripPlanResponse instance) =>
+    <String, dynamic>{
+      'tripPlan': instance.tripPlan,
+      'resources': instance.resources,
+    };
+
+PlaceMetadata _$PlaceMetadataFromJson(Map<String, dynamic> json) =>
+    PlaceMetadata(
+      id: (json['id'] as num).toInt(),
+      name: json['name'] as String,
+      placeId: json['placeId'] as String,
+      description: json['description'] as String?,
+    );
+
+Map<String, dynamic> _$PlaceMetadataToJson(PlaceMetadata instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'name': instance.name,
+      'placeId': instance.placeId,
+      'description': instance.description,
+    };
+
+Resources _$ResourcesFromJson(Map<String, dynamic> json) => Resources(
+      placeMetadata: (json['placeMetadata'] as List<dynamic>)
+          .map((e) => PlaceMetadata.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+
+Map<String, dynamic> _$ResourcesToJson(Resources instance) => <String, dynamic>{
+      'placeMetadata': instance.placeMetadata,
+    };
+
+TripPlan _$TripPlanFromJson(Map<String, dynamic> json) => TripPlan(
+      title: json['title'] as String,
+      viewCount: (json['viewCount'] as num?)?.toInt() ?? 0,
+      itinerary: Itinerary.fromJson(json['itinerary'] as Map<String, dynamic>),
+    );
+
+Map<String, dynamic> _$TripPlanToJson(TripPlan instance) => <String, dynamic>{
+      'title': instance.title,
+      'viewCount': instance.viewCount,
+      'itinerary': instance.itinerary,
+    };
+
+Itinerary _$ItineraryFromJson(Map<String, dynamic> json) => Itinerary(
+      sections: (json['sections'] as List<dynamic>)
+          .map((e) => Section.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+
+Map<String, dynamic> _$ItineraryToJson(Itinerary instance) => <String, dynamic>{
+      'sections': instance.sections,
+    };
+
+Section _$SectionFromJson(Map<String, dynamic> json) => Section(
+      heading: json['heading'] as String,
+      date: json['date'] as String?,
+      blocks: (json['blocks'] as List<dynamic>)
+          .map((e) => Block.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+
+Map<String, dynamic> _$SectionToJson(Section instance) => <String, dynamic>{
+      'heading': instance.heading,
+      'blocks': instance.blocks,
+      'date': instance.date,
+    };
+
+Block _$BlockFromJson(Map<String, dynamic> json) => Block(
+      type: json['type'] as String,
+      imageKeys: (json['imageKeys'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
+    );
+
+Map<String, dynamic> _$BlockToJson(Block instance) => <String, dynamic>{
+      'type': instance.type,
+      'imageKeys': instance.imageKeys,
+    };
+
 PlaceBlock _$PlaceBlockFromJson(Map<String, dynamic> json) => PlaceBlock(
       place: GooglePlace.fromJson(json['place'] as Map<String, dynamic>),
       hotel: json['hotel'] == null
           ? null
           : Hotel.fromJson(json['hotel'] as Map<String, dynamic>),
+      placeId: json['place_id'] as String?,
       imageKeys: (json['imageKeys'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList(),
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
     );
 
 Map<String, dynamic> _$PlaceBlockToJson(PlaceBlock instance) =>
@@ -21,6 +110,7 @@ Map<String, dynamic> _$PlaceBlockToJson(PlaceBlock instance) =>
       'imageKeys': instance.imageKeys,
       'place': instance.place,
       'hotel': instance.hotel,
+      'place_id': instance.placeId,
     };
 
 TextOps _$TextOpsFromJson(Map<String, dynamic> json) => TextOps(
@@ -48,8 +138,9 @@ Map<String, dynamic> _$TextContainerToJson(TextContainer instance) =>
 NoteBlock _$NoteBlockFromJson(Map<String, dynamic> json) => NoteBlock(
       text: TextContainer.fromJson(json['text'] as Map<String, dynamic>),
       imageKeys: (json['imageKeys'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList(),
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
     );
 
 Map<String, dynamic> _$NoteBlockToJson(NoteBlock instance) => <String, dynamic>{
@@ -145,8 +236,9 @@ FlightBlock _$FlightBlockFromJson(Map<String, dynamic> json) => FlightBlock(
       depart: DepartArrive.fromJson(json['depart'] as Map<String, dynamic>),
       arrive: DepartArrive.fromJson(json['arrive'] as Map<String, dynamic>),
       imageKeys: (json['imageKeys'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList(),
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
     );
 
 Map<String, dynamic> _$FlightBlockToJson(FlightBlock instance) =>

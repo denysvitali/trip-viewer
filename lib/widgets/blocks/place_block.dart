@@ -5,10 +5,12 @@ import 'package:wanderlog_alt/widgets/place_image.dart';
 
 class PlaceBlockWidget extends StatelessWidget {
   final PlaceBlock placeBlock;
+  final PlaceMetadata? metadata;
 
   const PlaceBlockWidget({
     super.key,
     required this.placeBlock,
+    required this.metadata,
   });
 
   @override
@@ -39,6 +41,11 @@ class PlaceBlockWidget extends StatelessWidget {
                   placeBlock.place.name,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
+                if (metadata != null)
+                  Row(children: [
+                    if (metadata!.description != null)
+                      Text(metadata!.description!),
+                  ]),
               ],
             ),
           ),
