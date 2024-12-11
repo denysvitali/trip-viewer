@@ -9,7 +9,7 @@ String getImageUrl(Block block) {
 class PlaceImage extends StatelessWidget {
   final Block block;
 
-  PlaceImage({
+  const PlaceImage({
     super.key,
     required this.block,
   });

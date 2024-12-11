@@ -23,6 +23,7 @@ PlaceMetadata _$PlaceMetadataFromJson(Map<String, dynamic> json) =>
       id: (json['id'] as num).toInt(),
       name: json['name'] as String,
       placeId: json['placeId'] as String,
+      generatedDescription: json['generatedDescription'] as String?,
       description: json['description'] as String?,
     );
 
@@ -31,6 +32,7 @@ Map<String, dynamic> _$PlaceMetadataToJson(PlaceMetadata instance) =>
       'id': instance.id,
       'name': instance.name,
       'placeId': instance.placeId,
+      'generatedDescription': instance.generatedDescription,
       'description': instance.description,
     };
 
@@ -98,7 +100,8 @@ PlaceBlock _$PlaceBlockFromJson(Map<String, dynamic> json) => PlaceBlock(
       hotel: json['hotel'] == null
           ? null
           : Hotel.fromJson(json['hotel'] as Map<String, dynamic>),
-      placeId: json['place_id'] as String?,
+      startTime: json['startTime'] as String?,
+      endTime: json['endTime'] as String?,
       imageKeys: (json['imageKeys'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
@@ -110,7 +113,8 @@ Map<String, dynamic> _$PlaceBlockToJson(PlaceBlock instance) =>
       'imageKeys': instance.imageKeys,
       'place': instance.place,
       'hotel': instance.hotel,
-      'place_id': instance.placeId,
+      'startTime': instance.startTime,
+      'endTime': instance.endTime,
     };
 
 TextOps _$TextOpsFromJson(Map<String, dynamic> json) => TextOps(
@@ -181,11 +185,13 @@ GooglePlace _$GooglePlaceFromJson(Map<String, dynamic> json) => GooglePlace(
           ?.map((e) => Photo.fromJson(e as Map<String, dynamic>))
           .toList(),
       url: json['url'] as String?,
+      placeId: json['place_id'] as String,
     );
 
 Map<String, dynamic> _$GooglePlaceToJson(GooglePlace instance) =>
     <String, dynamic>{
       'formatted_address': instance.formattedAddress,
+      'place_id': instance.placeId,
       'name': instance.name,
       'photos': instance.photos,
       'url': instance.url,

@@ -17,12 +17,14 @@ class PlaceMetadata {
   final int id;
   final String name;
   final String placeId;
+  final String? generatedDescription;
   final String? description;
 
   PlaceMetadata({
     required this.id,
     required this.name,
     required this.placeId,
+    required this.generatedDescription,
     required this.description,
   });
   factory PlaceMetadata.fromJson(Map<String, dynamic> json) =>
@@ -115,12 +117,13 @@ class Block {
 class PlaceBlock extends Block {
   final GooglePlace place;
   final Hotel? hotel;
-  @JsonKey(name: 'place_id')
-  final String? placeId;
+  final String? startTime;
+  final String? endTime;
   PlaceBlock({
     required this.place,
     required this.hotel,
-    required this.placeId,
+    required this.startTime,
+    required this.endTime,
     super.imageKeys,
   }) : super(type: 'place');
 
@@ -191,6 +194,8 @@ class Photo {
 class GooglePlace {
   @JsonKey(name: 'formatted_address')
   final String formattedAddress;
+  @JsonKey(name: 'place_id')
+  final String placeId;
   final String name;
   final List<Photo>? photos;
   final String? url;
@@ -200,6 +205,7 @@ class GooglePlace {
     required this.name,
     required this.photos,
     required this.url,
+    required this.placeId,
   });
 
   factory GooglePlace.fromJson(Map<String, dynamic> json) =>

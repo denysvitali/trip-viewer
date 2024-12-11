@@ -37,14 +37,20 @@ class PlaceBlockWidget extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  placeBlock.place.name,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                if (metadata != null)
-                  Row(children: [
-                    if (metadata!.description != null)
-                      Text(metadata!.description!),
+                _header(context),
+                if (metadata != null &&
+                    (metadata!.description != null ||
+                        metadata!.generatedDescription != null))
+                  Column(children: [
+                    const SizedBox(height: 8),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      child: Text(
+                        metadata!.description ??
+                            metadata!.generatedDescription ??
+                            '',
+                      ),
+                    ),
                   ]),
               ],
             ),
@@ -52,5 +58,42 @@ class PlaceBlockWidget extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _header(BuildContext context) {
+    List<Widget> children = [];
+    children.add(
+      Expanded(
+          child: Text(
+        placeBlock.place.name,
+        style: Theme.of(context).textTheme.titleMedium,
+      )),
+    );
+
+    String startEndTime = "";
+    if (placeBlock.startTime != null) {
+      startEndTime += placeBlock.startTime!;
+    }
+    if (placeBlock.endTime != null) {
+      startEndTime += " - ";
+      startEndTime += placeBlock.endTime!;
+    }
+    if (startEndTime != "") {
+      children.addAll(
+        [
+          const Icon(
+            Icons.access_time,
+            size: 16,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            startEndTime,
+            style: Theme.of(context).textTheme.bodyMedium,
+          )
+        ],
+      );
+    }
+
+    return Row(children: children);
   }
 }

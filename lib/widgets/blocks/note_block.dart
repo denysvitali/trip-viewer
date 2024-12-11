@@ -8,11 +8,12 @@ class NoteBlockWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(8.0),
+      padding: const EdgeInsets.fromLTRB(8, 16, 8, 16),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: block.text.ops.map((e) => Text(e.insert)).toList(),
+        children:
+            block.text.ops.map((e) => Text(e.insert.trimRight())).toList(),
       ),
     );
   }

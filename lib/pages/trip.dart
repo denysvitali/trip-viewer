@@ -160,7 +160,7 @@ class TripPageState extends State<TripPage> {
                   Block block = section.blocks[index];
 
                   if (block is PlaceBlock) {
-                    PlaceMetadata? placeMd = pm[block.placeId];
+                    PlaceMetadata? placeMd = pm[block.place.placeId];
                     return renderPlace(block, placeMd);
                   }
                   if (block is NoteBlock) {
@@ -193,7 +193,7 @@ class TripPageState extends State<TripPage> {
 
   Widget renderPlace(PlaceBlock placeBlock, PlaceMetadata? metadata) {
     if (placeBlock.hotel != null) {
-      return HotelBlock(placeBlock: placeBlock);
+      return HotelBlock(placeBlock: placeBlock, metadata: metadata);
     }
     return PlaceBlockWidget(placeBlock: placeBlock, metadata: metadata);
   }

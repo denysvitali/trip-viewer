@@ -4,21 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wanderlog_alt/models/trip_plan.dart';
 
-void showError(BuildContext ctx, e) {
-  log('Error: $e');
-  if (ctx.mounted) {
-    ScaffoldMessenger.of(ctx).showSnackBar(
-      SnackBar(
-        content: Text('Error: $e'),
-      ),
-    );
-  }
+void displayError(BuildContext ctx, e) {
+  ScaffoldMessenger.of(ctx).showSnackBar(
+    SnackBar(
+      content: Text('Error: $e'),
+    ),
+  );
 }
 
 class GenericBlock extends StatelessWidget {
   final PlaceBlock block;
   final Widget child;
-  GenericBlock({
+  const GenericBlock({
     super.key,
     required this.block,
     required this.child,
@@ -42,7 +39,10 @@ class GenericBlock extends StatelessWidget {
               mode: LaunchMode.externalApplication,
             );
           } catch (e) {
-            showError(context, e);
+            if (context.mounted) {
+              displayError(context, e);
+            }
+            log("unable to launch URL", error: e);
           }
         },
         child: child,
