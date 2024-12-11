@@ -1,4 +1,4 @@
-package com.example.wanderlog_alt
+package it.denv.wanderlog_alt
 
 import io.flutter.embedding.android.FlutterActivity
 
