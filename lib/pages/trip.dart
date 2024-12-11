@@ -36,6 +36,7 @@ class TripPageState extends State<TripPage> {
         showTripIdDialog();
       });
     } else {
+      tripId = widget.tripId;
       loadTripData();
     }
   }

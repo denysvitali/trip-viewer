@@ -30,6 +30,7 @@ class SetupWidget extends StatefulWidget {
 
 class _SetupWidgetState extends State<SetupWidget> {
   String? tripId;
+  bool _loadingTripId = true;
 
   @override
   void initState() {
@@ -41,11 +42,15 @@ class _SetupWidgetState extends State<SetupWidget> {
     final savedTripId = await SettingsService.getTripId();
     setState(() {
       tripId = savedTripId;
+      _loadingTripId = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_loadingTripId) {
+      return const Center(child: CircularProgressIndicator());
+    }
     return MainLayout(tripId: tripId);
   }
 }
@@ -66,6 +71,14 @@ class _MainLayoutState extends State<MainLayout> {
   void initState() {
     super.initState();
     tripId = widget.tripId;
+  }
+
+  @override
+  void didUpdateWidget(covariant MainLayout oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    setState(() {
+      tripId = widget.tripId;
+    });
   }
 
   @override
