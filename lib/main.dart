@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:wanderlog_alt/pages/settings.dart';
 import 'package:wanderlog_alt/pages/trip.dart';
 import 'package:wanderlog_alt/services/settings_service.dart';
-import 'package:wanderlog_alt/widgets/trip_id_dialog.dart';
 
 void main() {
   runApp(const MyApp());
@@ -13,10 +13,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-      ),
+      theme: ThemeData(useMaterial3: true),
+      darkTheme: ThemeData.dark(useMaterial3: true),
+      themeMode: ThemeMode.system,
       home: const SetupWidget(),
     );
   }
@@ -45,33 +44,73 @@ class _SetupWidgetState extends State<SetupWidget> {
     });
   }
 
-  Future<void> _showTripIdDialog() async {
-    final result = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const TripIdDialog(),
-    );
+  @override
+  Widget build(BuildContext context) {
+    return MainLayout(tripId: tripId);
+  }
+}
 
-    if (result != null) {
-      await SettingsService.setTripId(result);
-      setState(() {
-        tripId = result;
-      });
-    }
+class MainLayout extends StatefulWidget {
+  final String? tripId;
+  const MainLayout({super.key, required this.tripId});
+
+  @override
+  State<MainLayout> createState() => _MainLayoutState();
+}
+
+class _MainLayoutState extends State<MainLayout> {
+  int _selectedIndex = 0;
+  String? tripId;
+
+  @override
+  void initState() {
+    super.initState();
+    tripId = widget.tripId;
   }
 
   @override
   Widget build(BuildContext context) {
-    if (tripId == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showTripIdDialog();
-      });
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-    return TripPage(tripId: tripId!);
+    return Scaffold(
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          TripPage(tripId: tripId),
+          const Center(child: Text('Explore - Coming Soon')),
+          SettingsPage(
+            onTripIdChanged: (String newTripId) async {
+              await SettingsService.setTripId(newTripId);
+              setState(() {
+                tripId = newTripId;
+              });
+            },
+          ),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.map_outlined),
+            selectedIcon: Icon(Icons.map),
+            label: 'Trip',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.explore_outlined),
+            selectedIcon: Icon(Icons.explore),
+            label: 'Explore',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
+        ],
+      ),
+    );
   }
 }

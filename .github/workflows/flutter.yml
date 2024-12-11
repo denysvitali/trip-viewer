@@ -30,6 +30,7 @@ jobs:
         VERSION=$(echo $GITHUB_RUN_NUMBER)
         sed -i -E "s/version: (.*?)\+(.*?)/version: \\1+$VERSION/g" pubspec.yaml
     - run: flutter pub get
+    - run: flutter pub run build_runner build --delete-conflicting-outputs
     - run: flutter gen-l10n
     - run: flutter build appbundle --release
     - uses: r0adkll/upload-google-play@v1
