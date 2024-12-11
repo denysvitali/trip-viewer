@@ -3,6 +3,7 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:wanderlog_alt/models/trip_plan.dart';
 import 'package:wanderlog_alt/widgets/blocks/flight_block.dart';
 import 'package:wanderlog_alt/widgets/blocks/hotel_block.dart';
@@ -23,6 +24,8 @@ const bool isProduction = bool.fromEnvironment('dart.vm.product');
 class TripPageState extends State<TripPage> {
   TripPlanResponse? plan;
   String? tripId;
+  Map<DateTime, List<FlightBlock>> flightsByDate = {};
+  Map<DateTime, List<HotelBlock>> hotelsByDate = {};
 
   @override
   void initState() {
@@ -60,7 +63,7 @@ class TripPageState extends State<TripPage> {
     log("Loading trip data for $tripId");
     Uri url = Uri.parse('$apiUrl/$tripId?clientSchemaVersion=2');
     if (!isProduction) {
-      url = Uri.parse("http://127.0.0.1:5005/thailand.json");
+      url = Uri.parse("http://127.0.0.1:5005/thailand2.json");
     }
     http.get(url).then((response) {
       // Parse response
@@ -68,6 +71,8 @@ class TripPageState extends State<TripPage> {
       // Update state with trip data
       TripPlanResponse fetchedPlan = TripPlanResponse.fromJson(tripData);
       setState(() {
+        flightsByDate = getFlightsByDate(fetchedPlan);
+        hotelsByDate = getHotelsByDate(fetchedPlan);
         plan = fetchedPlan;
       });
     });
@@ -137,6 +142,7 @@ class TripPageState extends State<TripPage> {
     }
     Map<String, PlaceMetadata> pm =
         getPlaceMetadata(plan!.resources.placeMetadata);
+
     return DefaultTabController(
       length: plan!.tripPlan.itinerary.sections.length,
       child: Scaffold(
@@ -155,9 +161,15 @@ class TripPageState extends State<TripPage> {
           padding: const EdgeInsets.all(8.0),
           child: TabBarView(
             children: plan!.tripPlan.itinerary.sections.map((section) {
+              List<Widget> initialSections = [
+                _sectionHeader(context, section),
+              ];
               return ListView.builder(
                 itemBuilder: (context, index) {
-                  Block block = section.blocks[index];
+                  if (index < initialSections.length) {
+                    return initialSections[index];
+                  }
+                  Block block = section.blocks[index - initialSections.length];
 
                   if (block is PlaceBlock) {
                     PlaceMetadata? placeMd = pm[block.place.placeId];
@@ -172,12 +184,78 @@ class TripPageState extends State<TripPage> {
                   return ListTile(
                       title: Text('Unknown block type ${block.type}'));
                 },
-                itemCount: section.blocks.length,
+                itemCount: section.blocks.length + initialSections.length,
               );
             }).toList(),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _sectionHeader(BuildContext context, Section section) {
+    if (section.date == null) {
+      return Container();
+    }
+    DateTime date = DateTime.parse(section.date!);
+    return Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              DateFormat('EEEE, MMMM d yyyy').format(date),
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            _flights(context, date),
+            _lodging(context, date),
+            _sectionTitle("Activities"),
+          ],
+        ));
+  }
+
+  Widget _sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0.0, 16.0, 0.0, 8.0),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.headlineSmall,
+      ),
+    );
+  }
+
+  Widget _flights(BuildContext context, DateTime date) {
+    if (!flightsByDate.containsKey(date)) {
+      return Container();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle("Flights"),
+        Column(
+          children: flightsByDate[date]!.map((flight) {
+            return FlightBlockWidget(flightBlock: flight);
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _lodging(BuildContext context, DateTime date) {
+    if (!hotelsByDate.containsKey(date)) {
+      return Container();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle("Lodging"),
+        Column(
+          children: hotelsByDate[date]!.map((hotel) {
+            return HotelBlock(placeBlock: hotel.placeBlock, metadata: null);
+          }).toList(),
+        ),
+      ],
     );
   }
 
@@ -206,6 +284,58 @@ class TripPageState extends State<TripPage> {
     }
     return pm;
   }
+
+  Map<DateTime, List<FlightBlock>> getFlightsByDate(
+      TripPlanResponse fetchedPlan) {
+    Map<DateTime, List<FlightBlock>> flightsByDate = {};
+    for (Section section in fetchedPlan.tripPlan.itinerary.sections) {
+      for (Block block in section.blocks) {
+        if (block is FlightBlock) {
+          DateTime departDate = DateTime.parse(block.depart.date);
+          DateTime arriveDate = DateTime.parse(block.arrive.date);
+
+          if (!flightsByDate.containsKey(departDate)) {
+            flightsByDate[departDate] = [];
+          }
+          flightsByDate[departDate]!.add(block);
+
+          if (arriveDate != departDate) {
+            if (!flightsByDate.containsKey(arriveDate)) {
+              flightsByDate[arriveDate] = [];
+            }
+            flightsByDate[arriveDate]!.add(block);
+          }
+        }
+      }
+    }
+    return flightsByDate;
+  }
+}
+
+Map<DateTime, List<HotelBlock>> getHotelsByDate(TripPlanResponse fetchedPlan) {
+  Map<DateTime, List<HotelBlock>> hotelsByDate = {};
+  for (Section section in fetchedPlan.tripPlan.itinerary.sections) {
+    for (Block block in section.blocks) {
+      if (block is PlaceBlock) {
+        if (block.hotel != null) {
+          DateTime checkIn = DateTime.parse(block.hotel!.checkIn!);
+          DateTime checkOut = DateTime.parse(block.hotel!.checkOut!);
+          for (DateTime date = checkIn;
+              date.isBefore(checkOut);
+              date = date.add(const Duration(days: 1))) {
+            if (!hotelsByDate.containsKey(date)) {
+              hotelsByDate[date] = [];
+            }
+            hotelsByDate[date]!.add(HotelBlock(
+              placeBlock: block,
+              metadata: null,
+            ));
+          }
+        }
+      }
+    }
+  }
+  return hotelsByDate;
 }
 
 List<String>? getListStrings(List<dynamic>? json) {

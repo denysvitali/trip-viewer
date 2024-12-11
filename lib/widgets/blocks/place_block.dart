@@ -28,7 +28,7 @@ class PlaceBlockWidget extends StatelessWidget {
               child: SizedBox(
                 height: 300,
                 width: double.infinity,
-                child: PlaceImage(block: placeBlock),
+                child: PlaceImage(block: placeBlock, metadata: metadata),
               ),
             ),
           Padding(
@@ -38,20 +38,7 @@ class PlaceBlockWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _header(context),
-                if (metadata != null &&
-                    (metadata!.description != null ||
-                        metadata!.generatedDescription != null))
-                  Column(children: [
-                    const SizedBox(height: 8),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 200),
-                      child: Text(
-                        metadata!.description ??
-                            metadata!.generatedDescription ??
-                            '',
-                      ),
-                    ),
-                  ]),
+                _body(context),
               ],
             ),
           ),
@@ -93,7 +80,53 @@ class PlaceBlockWidget extends StatelessWidget {
         ],
       );
     }
-
     return Row(children: children);
+  }
+
+  String formatNumber(int number) {
+    if (number > 1000) {
+      return '${(number / 1000).toStringAsFixed(1)}k';
+    }
+    return number.toString();
+  }
+
+  Widget _body(BuildContext context) {
+    List<Widget> children = [];
+    if (metadata == null) {
+      return Container();
+    }
+    if (metadata!.rating != null) {
+      children.addAll([
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Icon(
+              Icons.star,
+              size: 16,
+              color: Theme.of(context).colorScheme.secondary,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              "${metadata!.rating} (${formatNumber(metadata!.numRatings!)})",
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+      ]);
+    }
+    if (metadata!.description != null ||
+        metadata!.generatedDescription != null) {
+      children.add(
+        ConstrainedBox(
+          constraints:
+              const BoxConstraints(maxHeight: 100, minWidth: double.infinity),
+          child: Text(
+            metadata!.description ?? metadata!.generatedDescription ?? '',
+          ),
+        ),
+      );
+    }
+    return Column(children: children);
   }
 }

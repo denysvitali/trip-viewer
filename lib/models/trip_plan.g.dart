@@ -25,6 +25,10 @@ PlaceMetadata _$PlaceMetadataFromJson(Map<String, dynamic> json) =>
       placeId: json['placeId'] as String,
       generatedDescription: json['generatedDescription'] as String?,
       description: json['description'] as String?,
+      imageKeys:
+          (json['imageKeys'] as List<dynamic>).map((e) => e as String).toList(),
+      rating: (json['rating'] as num?)?.toDouble(),
+      numRatings: (json['numRatings'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$PlaceMetadataToJson(PlaceMetadata instance) =>
@@ -34,6 +38,9 @@ Map<String, dynamic> _$PlaceMetadataToJson(PlaceMetadata instance) =>
       'placeId': instance.placeId,
       'generatedDescription': instance.generatedDescription,
       'description': instance.description,
+      'rating': instance.rating,
+      'numRatings': instance.numRatings,
+      'imageKeys': instance.imageKeys,
     };
 
 Resources _$ResourcesFromJson(Map<String, dynamic> json) => Resources(

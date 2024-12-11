@@ -180,16 +180,11 @@ class HotelBlock extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (placeBlock.imageKeys.isNotEmpty)
-              ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(12)),
-                child: SizedBox(
-                  height: 350,
-                  width: double.infinity,
-                  child: PlaceImage(block: placeBlock),
-                ),
-              ),
+            ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
+              child: PlaceImage(block: placeBlock, metadata: metadata),
+            ),
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(

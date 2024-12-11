@@ -19,6 +19,9 @@ class PlaceMetadata {
   final String placeId;
   final String? generatedDescription;
   final String? description;
+  final double? rating;
+  final int? numRatings;
+  List<String> imageKeys = [];
 
   PlaceMetadata({
     required this.id,
@@ -26,6 +29,9 @@ class PlaceMetadata {
     required this.placeId,
     required this.generatedDescription,
     required this.description,
+    required this.imageKeys,
+    required this.rating,
+    required this.numRatings,
   });
   factory PlaceMetadata.fromJson(Map<String, dynamic> json) =>
       _$PlaceMetadataFromJson(json);
