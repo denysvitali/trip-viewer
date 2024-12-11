@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:wanderlog_alt/models/trip_plan.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:wanderlog_alt/widgets/place_image.dart';
 
 class _DateLabel extends StatelessWidget {
   final DateTime date;
@@ -121,15 +120,147 @@ class _ConfirmationNumber extends StatelessWidget {
   }
 }
 
-class HotelBlock extends StatelessWidget {
+class HotelBlock extends StatefulWidget {
   final PlaceBlock placeBlock;
   final PlaceMetadata? metadata;
+  final bool initiallyExpanded;
 
   const HotelBlock({
     super.key,
     required this.placeBlock,
     required this.metadata,
+    this.initiallyExpanded = true,
   });
+
+  @override
+  State<HotelBlock> createState() => _HotelBlockState();
+}
+
+class _HotelBlockState extends State<HotelBlock>
+    with SingleTickerProviderStateMixin {
+  late bool _isExpanded;
+  late AnimationController _controller;
+  late Animation<double> _heightFactor;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = widget.initiallyExpanded;
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _heightFactor = _controller.drive(CurveTween(curve: Curves.easeInOut));
+    if (_isExpanded) {
+      _controller.value = 1.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggleExpanded() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+      if (_isExpanded) {
+        _controller.forward();
+      } else {
+        _controller.reverse();
+      }
+    });
+  }
+
+  Widget _buildCompressedView() {
+    return SizedBox(
+      height: 100,
+      width: double.infinity,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.placeBlock.place.name,
+              style: Theme.of(context).textTheme.titleMedium,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${DateFormat('MMM d').format(DateTime.parse(widget.placeBlock.hotel?.checkIn ?? ''))} - ${DateFormat('MMM d').format(DateTime.parse(widget.placeBlock.hotel?.checkOut ?? ''))}',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: _toggleExpanded,
+        onLongPress: () {
+          if (widget.placeBlock.place.url != null) {
+            launchUrl(
+              Uri.parse(widget.placeBlock.place.url!),
+              mode: LaunchMode.externalApplication,
+            );
+          }
+        },
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            return Column(
+              children: [
+                _buildCompressedView(),
+                ClipRect(
+                  child: Align(
+                    heightFactor: _heightFactor.value,
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 16),
+                              _buildDateSection(context),
+                              const SizedBox(height: 16),
+                              if (widget.metadata?.description != null ||
+                                  widget.metadata?.generatedDescription != null)
+                                Text(
+                                  widget.metadata?.description ??
+                                      widget.metadata?.generatedDescription ??
+                                      '',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              const Divider(height: 24),
+                              _HotelInfo(
+                                placeBlock: widget.placeBlock,
+                                metadata: widget.metadata,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
 
   Widget _buildDateSection(BuildContext context) {
     return Row(
@@ -137,7 +268,7 @@ class HotelBlock extends StatelessWidget {
       children: [
         Expanded(
           child: StayDateInfo(
-            date: DateTime.parse(placeBlock.hotel?.checkIn ?? ''),
+            date: DateTime.parse(widget.placeBlock.hotel?.checkIn ?? ''),
             isCheckIn: true,
           ),
         ),
@@ -153,66 +284,11 @@ class HotelBlock extends StatelessWidget {
         ),
         Expanded(
           child: StayDateInfo(
-            date: DateTime.parse(placeBlock.hotel?.checkOut ?? ''),
+            date: DateTime.parse(widget.placeBlock.hotel?.checkOut ?? ''),
             isCheckIn: false,
           ),
         ),
       ],
-    );
-  }
-
-  void _launchHotelUrl() {
-    if (placeBlock.place.url != null) {
-      launchUrl(
-        Uri.parse(placeBlock.place.url!),
-        mode: LaunchMode.externalApplication,
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: _launchHotelUrl,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
-              child: PlaceImage(block: placeBlock, metadata: metadata),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    placeBlock.place.name,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildDateSection(context),
-                  const SizedBox(height: 16),
-                  if (metadata?.description != null ||
-                      metadata?.generatedDescription != null)
-                    Text(
-                      metadata?.description ??
-                          metadata?.generatedDescription ??
-                          '',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  const Divider(height: 24),
-                  _HotelInfo(placeBlock: placeBlock, metadata: metadata),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

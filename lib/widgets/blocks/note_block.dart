@@ -12,8 +12,14 @@ class NoteBlockWidget extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
-        children:
-            block.text.ops.map((e) => Text(e.insert.trimRight())).toList(),
+        children: block.text.ops
+            .map(
+              (e) => Text(
+                e.insert.trimRight(),
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+            )
+            .toList(),
       ),
     );
   }

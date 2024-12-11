@@ -26,7 +26,7 @@ class PlaceBlockWidget extends StatelessWidget {
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(12)),
               child: SizedBox(
-                height: 300,
+                height: 250,
                 width: double.infinity,
                 child: PlaceImage(block: placeBlock, metadata: metadata),
               ),

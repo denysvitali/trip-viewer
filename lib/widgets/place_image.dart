@@ -32,12 +32,10 @@ class PlaceImage extends StatelessWidget {
     if (imageUrl == null) {
       return Container();
     } else {
-      return ConstrainedBox(
-          constraints: const BoxConstraints.expand(height: 300),
-          child: Image(
-            fit: BoxFit.fitWidth,
-            image: CachedNetworkImageProvider(imageUrl),
-          ));
+      return Image(
+        fit: BoxFit.cover,
+        image: CachedNetworkImageProvider(imageUrl),
+      );
     }
   }
 }

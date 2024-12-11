@@ -203,26 +203,27 @@ class TripPageState extends State<TripPage> {
       return Container();
     }
     DateTime date = DateTime.parse(section.date!);
-    return Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              DateFormat('EEEE, MMMM d yyyy').format(date),
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            _flights(context, date),
-            _lodging(context, date),
-            _sectionTitle("Activities"),
-          ],
-        ));
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            DateFormat('EEEE, MMMM d yyyy').format(date),
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
+        ),
+        _flights(context, date),
+        _lodging(context, date),
+        _sectionTitle("Activities"),
+      ],
+    );
   }
 
   Widget _sectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0.0, 16.0, 0.0, 8.0),
+      padding: const EdgeInsets.fromLTRB(8.0, 16.0, 8.0, 8.0),
       child: Text(
         title,
         style: Theme.of(context).textTheme.headlineSmall,
@@ -240,7 +241,10 @@ class TripPageState extends State<TripPage> {
         _sectionTitle("Flights"),
         Column(
           children: flightsByDate[date]!.map((flight) {
-            return FlightBlockWidget(flightBlock: flight);
+            return FlightBlockWidget(
+              flightBlock: flight,
+              initiallyExpanded: false,
+            );
           }).toList(),
         ),
       ],
@@ -257,7 +261,11 @@ class TripPageState extends State<TripPage> {
         _sectionTitle("Lodging"),
         Column(
           children: hotelsByDate[date]!.map((hotel) {
-            return HotelBlock(placeBlock: hotel.placeBlock, metadata: null);
+            return HotelBlock(
+              placeBlock: hotel.placeBlock,
+              metadata: null,
+              initiallyExpanded: false,
+            );
           }).toList(),
         ),
       ],
