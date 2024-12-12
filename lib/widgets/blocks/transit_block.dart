@@ -99,9 +99,26 @@ class TransitFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      'XYZ',
-      style: Theme.of(context).textTheme.titleSmall,
+    return Expanded(
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(
+          transitBlock.carrier ?? '',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        if (transitBlock.confirmationNumber != null)
+          Row(children: [
+            Icon(
+              Icons.confirmation_number,
+              color: Theme.of(context).colorScheme.secondary,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              transitBlock.confirmationNumber ?? '',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ])
+      ]),
     );
   }
 }
@@ -247,7 +264,11 @@ class _TransitBlockWidgetState extends State<TransitBlockWidget> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  Icon(_getTransitTypeIcon(), size: 18, color: Colors.grey),
+                  Icon(
+                    _getTransitTypeIcon(),
+                    size: 18,
+                    color: Theme.of(context).colorScheme.secondary,
+                  ),
                   const SizedBox(width: 8),
                   TransitFooter(transitBlock: widget.transitBlock),
                 ],
