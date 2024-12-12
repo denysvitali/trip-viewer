@@ -30,10 +30,26 @@ class TripPageState extends State<TripPage> {
   Map<DateTime, List<HotelBlock>> hotelsByDate = {};
   Map<DateTime, List<TransitBlock>> transitByDate = {};
   bool _isLoading = true;
+  final ScrollController _scrollController = ScrollController();
+  Map<DateTime, GlobalKey> _dateKeys = {};
+  final Map<DateTime, double> _sectionOffsets = {};
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+
+  int _findTodayIndex(List<DateTime> dates) {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+
+    return dates.indexWhere((date) {
+      final compareDate = DateTime(date.year, date.month, date.day);
+      return compareDate.isAtSameMomentAs(todayDate);
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_updateSectionOffsets);
     if (widget.tripId == null) {
       // Show dialog on next frame
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -53,6 +69,13 @@ class TripPageState extends State<TripPage> {
     }
   }
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadTripWithCache() async {
     if (tripId == null) return;
 
@@ -69,12 +92,34 @@ class TripPageState extends State<TripPage> {
 
   void _updateTripData(Map<String, dynamic> tripData) {
     final fetchedPlan = TripPlanResponse.fromJson(tripData);
+
+    // Create GlobalKeys for all dates when data loads
+    final dateKeys = <DateTime, GlobalKey>{};
+    final dates = fetchedPlan.tripPlan.itinerary.sections
+        .where((s) => s.date != null)
+        .map((s) => DateTime.parse(s.date!))
+        .toList()
+      ..sort();
+
+    // Find today's index
+    final todayIndex = _findTodayIndex(dates);
+    final initialPage = todayIndex >= 0 ? todayIndex : 0;
+
     setState(() {
       flightsByDate = getFlightsByDate(fetchedPlan);
       hotelsByDate = getHotelsByDate(fetchedPlan);
       transitByDate = getTransitByDate(fetchedPlan);
       plan = fetchedPlan;
+      _dateKeys = dateKeys;
       _isLoading = false;
+      _currentPage = initialPage;
+    });
+
+    // Wait for the next frame when PageView is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(initialPage);
+      }
     });
   }
 
@@ -173,6 +218,26 @@ class TripPageState extends State<TripPage> {
     }
   }
 
+  void _updateSectionOffsets() {
+    for (final date in _dateKeys.keys) {
+      final context = _dateKeys[date]?.currentContext;
+      if (context != null) {
+        final RenderBox box = context.findRenderObject() as RenderBox;
+        final position = box.localToGlobal(Offset.zero);
+        _sectionOffsets[date] = position.dy;
+      }
+    }
+  }
+
+  List<DateTime> _getSortedDates() {
+    if (plan == null) return [];
+    return plan!.tripPlan.itinerary.sections
+        .where((s) => s.date != null)
+        .map((s) => DateTime.parse(s.date!))
+        .toList()
+      ..sort();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading && plan == null) {
@@ -181,183 +246,56 @@ class TripPageState extends State<TripPage> {
     if (plan == null) {
       return Center(child: Text('No trip data for $tripId'));
     }
-    Map<String, PlaceMetadata> pm =
-        getPlaceMetadata(plan!.resources.placeMetadata);
 
-    return DefaultTabController(
-      length: plan!.tripPlan.itinerary.sections.length,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text('${plan!.tripPlan.title} ($tripId)'),
-          bottom: TabBar(
-            isScrollable: true,
-            tabs: plan!.tripPlan.itinerary.sections.map((section) {
-              return Tab(
-                text: getSectionTitle(section),
-              );
-            }).toList(),
-          ),
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: TabBarView(
-            children: plan!.tripPlan.itinerary.sections.map((section) {
-              List<Widget> initialSections = [
-                _sectionHeader(context, section),
-              ];
-              return RefreshIndicator(
-                  onRefresh: () async {
-                    reloadTrip(tripId);
-                  },
-                  child: ListView.builder(
-                    itemBuilder: (context, index) {
-                      if (index < initialSections.length) {
-                        return initialSections[index];
-                      }
-                      Block block =
-                          section.blocks[index - initialSections.length];
+    final dates = _getSortedDates();
+    final pm = getPlaceMetadata(plan!.resources.placeMetadata);
 
-                      if (block is PlaceBlock) {
-                        PlaceMetadata? placeMd = pm[block.place.placeId];
-                        return renderPlace(block, placeMd);
-                      }
-                      if (block is NoteBlock) {
-                        return NoteBlockWidget(block: block);
-                      }
-                      if (block is FlightBlock) {
-                        return FlightBlockWidget(flightBlock: block);
-                      }
-                      if (block is TransitBlock) {
-                        return renderTransit(block);
-                      }
-                      return ListTile(
-                          title: Text('Unknown block type ${block.type}'));
-                    },
-                    itemCount: section.blocks.length + initialSections.length,
-                  ));
-            }).toList(),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('${plan!.tripPlan.title} ($tripId)'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(72),
+          child: CalendarStrip(
+            dates: dates,
+            selectedIndex: _currentPage,
+            onDateSelected: (index) {
+              _pageController.jumpToPage(index);
+            },
           ),
         ),
       ),
-    );
-  }
+      body: PageView.builder(
+        controller: _pageController,
+        onPageChanged: (page) => setState(() => _currentPage = page),
+        itemCount: dates.length,
+        // Add key to PageView for maintaining scroll position
+        key: const PageStorageKey<String>('trip-page-view'),
+        itemBuilder: (context, index) {
+          final date = dates[index];
+          final section = plan!.tripPlan.itinerary.sections.firstWhere(
+            (s) {
+              String formattedDate = DateFormat("yyyy-MM-dd").format(date);
+              return s.date == formattedDate;
+            },
+            orElse: () => Section(
+              date: date.toString(),
+              heading: '',
+              blocks: [],
+            ),
+          );
 
-  Widget _sectionHeader(BuildContext context, Section section) {
-    if (section.date == null) {
-      return Container();
-    }
-    DateTime date = DateTime.parse(section.date!);
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.start,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            DateFormat('EEEE, MMMM d yyyy').format(date),
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-        ),
-        _flights(context, date),
-        _lodging(context, date),
-        _transit(context, date),
-        _sectionTitle("Activities"),
-      ],
-    );
-  }
-
-  Widget _sectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8.0, 16.0, 8.0, 8.0),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.headlineSmall,
+          return DayView(
+            key: ValueKey('day-view-$date'),
+            date: date,
+            section: section,
+            flights: flightsByDate[date] ?? [],
+            hotels: hotelsByDate[date] ?? [],
+            transit: transitByDate[date] ?? [],
+            placeMetadata: pm,
+          );
+        },
       ),
     );
-  }
-
-  Widget _flights(BuildContext context, DateTime date) {
-    if (!flightsByDate.containsKey(date)) {
-      return Container();
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionTitle("Flights"),
-        Column(
-          children: flightsByDate[date]!.map((flight) {
-            return FlightBlockWidget(
-              flightBlock: flight,
-              initiallyExpanded: false,
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _lodging(BuildContext context, DateTime date) {
-    if (!hotelsByDate.containsKey(date)) {
-      return Container();
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionTitle("Lodging"),
-        Column(
-          children: hotelsByDate[date]!.map((hotel) {
-            return HotelBlock(
-              placeBlock: hotel.placeBlock,
-              metadata: null,
-              initiallyExpanded: false,
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _transit(BuildContext context, DateTime date) {
-    if (!transitByDate.containsKey(date)) {
-      return Container();
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionTitle("Transit"),
-        Column(
-          children: transitByDate[date]!.map((transit) {
-            return renderTransit(transit, initiallyExpanded: false);
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  String getSectionTitle(Section section) {
-    if (section.date != null) {
-      if (section.heading != "") {
-        return '${section.date} - ${section.heading}';
-      }
-      return section.date!;
-    }
-    return section.heading;
-  }
-
-  Widget renderPlace(PlaceBlock placeBlock, PlaceMetadata? metadata) {
-    if (placeBlock.hotel != null) {
-      return HotelBlock(placeBlock: placeBlock, metadata: metadata);
-    }
-    return PlaceBlockWidget(placeBlock: placeBlock, metadata: metadata);
-  }
-
-  Map<String, PlaceMetadata> getPlaceMetadata(
-      List<PlaceMetadata> placemetadata) {
-    Map<String, PlaceMetadata> pm = {};
-    for (PlaceMetadata p in placemetadata) {
-      pm[p.placeId] = p;
-    }
-    return pm;
   }
 
   Map<DateTime, List<FlightBlock>> getFlightsByDate(
@@ -386,6 +324,22 @@ class TripPageState extends State<TripPage> {
     return flightsByDate;
   }
 
+  Widget renderPlace(PlaceBlock placeBlock, PlaceMetadata? metadata) {
+    if (placeBlock.hotel != null) {
+      return HotelBlock(placeBlock: placeBlock, metadata: metadata);
+    }
+    return PlaceBlockWidget(placeBlock: placeBlock, metadata: metadata);
+  }
+
+  Map<String, PlaceMetadata> getPlaceMetadata(
+      List<PlaceMetadata> placemetadata) {
+    Map<String, PlaceMetadata> pm = {};
+    for (PlaceMetadata p in placemetadata) {
+      pm[p.placeId] = p;
+    }
+    return pm;
+  }
+
   Widget renderTransit(TransitBlock block, {bool initiallyExpanded = true}) {
     switch (block.type) {
       case "train":
@@ -407,6 +361,55 @@ class TripPageState extends State<TripPage> {
           initiallyExpanded: initiallyExpanded,
         );
     }
+  }
+}
+
+class TimelineSection extends StatelessWidget {
+  final DateTime date;
+  final Widget child;
+  final bool isLast;
+
+  const TimelineSection({
+    super.key,
+    required this.date,
+    required this.child,
+    this.isLast = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return IntrinsicHeight(
+      child: Row(
+        children: [
+          SizedBox(
+            width: 32,
+            child: Column(
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withAlpha((0.2 * 255).toInt()),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(child: child),
+        ],
+      ),
+    );
   }
 }
 
@@ -467,4 +470,231 @@ List<String>? getListStrings(List<dynamic>? json) {
     return null;
   }
   return json.map((item) => item.toString()).toList();
+}
+
+class DayView extends StatefulWidget {
+  // Changed to StatefulWidget
+  final DateTime date;
+  final Section section;
+  final List<FlightBlock> flights;
+  final List<HotelBlock> hotels;
+  final List<TransitBlock> transit;
+  final Map<String, PlaceMetadata> placeMetadata;
+
+  const DayView({
+    super.key,
+    required this.date,
+    required this.section,
+    required this.flights,
+    required this.hotels,
+    required this.transit,
+    required this.placeMetadata,
+  });
+
+  @override
+  State<DayView> createState() => _DayViewState();
+}
+
+class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
+  late final List<PlaceBlock> _activities;
+
+  @override
+  void initState() {
+    super.initState();
+    _activities = widget.section.blocks
+        .where((b) => b is PlaceBlock && (b).hotel == null)
+        .cast<PlaceBlock>()
+        .toList();
+  }
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context); // Required by AutomaticKeepAliveClientMixin
+
+    return PageStorage(
+      bucket: PageStorageBucket(),
+      child: ListView(
+        key: PageStorageKey('day-view-${widget.date}'),
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildHeader(context),
+          if (widget.flights.isNotEmpty) ...[
+            _buildSectionTitle(context, 'Flights'),
+            ...widget.flights.map((f) => FlightBlockWidget(flightBlock: f)),
+          ],
+          if (widget.hotels.isNotEmpty) ...[
+            _buildSectionTitle(context, 'Lodging'),
+            ...widget.hotels,
+          ],
+          if (widget.transit.isNotEmpty) ...[
+            _buildSectionTitle(context, 'Transit'),
+            ...widget.transit.map((t) => TransitBlockWidget(
+                transitBlock: t, transitType: getTransitType(t.type))),
+          ],
+          _buildSectionTitle(context, 'Activities'),
+          ..._activities.map((b) => PlaceBlockWidget(
+                placeBlock: b,
+                metadata: widget.placeMetadata[b.place.placeId],
+              )),
+        ],
+      ),
+    );
+  }
+
+  // ... rest of the DayView methods remain the same ...
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            DateFormat('EEEE').format(widget.date),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+          ),
+          Text(
+            DateFormat('MMMM d, yyyy').format(widget.date),
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          if (widget.section.heading.isNotEmpty)
+            Text(
+              widget.section.heading,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(BuildContext context, String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+      ),
+    );
+  }
+
+  TransitType getTransitType(String type) {
+    switch (type) {
+      case 'train':
+        return TransitType.train;
+      case 'bus':
+        return TransitType.bus;
+      default:
+        return TransitType.other;
+    }
+  }
+}
+
+class CalendarStrip extends StatelessWidget {
+  final List<DateTime> dates;
+  final int selectedIndex;
+  final Function(int) onDateSelected;
+
+  const CalendarStrip({
+    super.key,
+    required this.dates,
+    required this.selectedIndex,
+    required this.onDateSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 72,
+      color: Theme.of(context).colorScheme.surface,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        itemCount: dates.length,
+        itemBuilder: (context, index) {
+          final date = dates[index];
+          final isSelected = index == selectedIndex;
+
+          return CalendarDay(
+            date: date,
+            isSelected: isSelected,
+            onTap: () => onDateSelected(index),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class CalendarDay extends StatelessWidget {
+  final DateTime date;
+  final bool isSelected;
+  final VoidCallback onTap;
+  const CalendarDay({
+    super.key,
+    required this.date,
+    required this.isSelected,
+    required this.onTap,
+  });
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 48,
+          decoration: BoxDecoration(
+            color: isSelected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.outline.withOpacity(0.5),
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                DateFormat('E').format(date).toUpperCase(),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: isSelected
+                      ? theme.colorScheme.onPrimary
+                      : theme.colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                date.day.toString(),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: isSelected
+                      ? theme.colorScheme.onPrimary
+                      : theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                DateFormat('MMM').format(date).toUpperCase(),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: isSelected
+                      ? theme.colorScheme.onPrimary
+                      : theme.colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
