@@ -114,6 +114,9 @@ class Block {
         return FlightBlock.fromJson(json);
       case 'note':
         return NoteBlock.fromJson(json);
+      case 'bus':
+      case 'train':
+        return TransitBlock.fromJson(json);
     }
     return Block(type: json['type'], imageKeys: json['image_keys'] ?? []);
   }
@@ -248,6 +251,19 @@ class DepartArrive {
 }
 
 @JsonSerializable()
+class DepartArrivePlace {
+  final String date;
+  final String? time;
+  final GooglePlace place;
+
+  DepartArrivePlace(
+      {required this.date, required this.time, required this.place});
+
+  factory DepartArrivePlace.fromJson(Map<String, dynamic> json) =>
+      _$DepartArrivePlaceFromJson(json);
+}
+
+@JsonSerializable()
 class FlightInfo {
   final Airline airline;
   final int number;
@@ -290,4 +306,23 @@ class Hotel {
   });
 
   factory Hotel.fromJson(Map<String, dynamic> json) => _$HotelFromJson(json);
+}
+
+@JsonSerializable()
+class TransitBlock extends Block {
+  final DepartArrivePlace depart;
+  final DepartArrivePlace arrive;
+  final String? confirmationNumber;
+  final String? carrier;
+
+  TransitBlock({
+    required this.depart,
+    required this.arrive,
+    required this.confirmationNumber,
+    required this.carrier,
+    required super.type,
+  });
+
+  factory TransitBlock.fromJson(Map<String, dynamic> json) =>
+      _$TransitBlockFromJson(json);
 }

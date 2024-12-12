@@ -9,6 +9,7 @@ import 'package:wanderlog_alt/widgets/blocks/flight_block.dart';
 import 'package:wanderlog_alt/widgets/blocks/hotel_block.dart';
 import 'package:wanderlog_alt/widgets/blocks/note_block.dart';
 import 'package:wanderlog_alt/widgets/blocks/place_block.dart';
+import 'package:wanderlog_alt/widgets/blocks/transit_block.dart';
 
 class TripPage extends StatefulWidget {
   final String? tripId;
@@ -26,6 +27,7 @@ class TripPageState extends State<TripPage> {
   String? tripId;
   Map<DateTime, List<FlightBlock>> flightsByDate = {};
   Map<DateTime, List<HotelBlock>> hotelsByDate = {};
+  Map<DateTime, List<TransitBlock>> transitByDate = {};
 
   @override
   void initState() {
@@ -74,6 +76,7 @@ class TripPageState extends State<TripPage> {
       setState(() {
         flightsByDate = getFlightsByDate(fetchedPlan);
         hotelsByDate = getHotelsByDate(fetchedPlan);
+        transitByDate = getTransitByDate(fetchedPlan);
         plan = fetchedPlan;
       });
     });
@@ -187,6 +190,9 @@ class TripPageState extends State<TripPage> {
                       if (block is FlightBlock) {
                         return FlightBlockWidget(flightBlock: block);
                       }
+                      if (block is TransitBlock) {
+                        return renderTransit(block);
+                      }
                       return ListTile(
                           title: Text('Unknown block type ${block.type}'));
                     },
@@ -217,6 +223,7 @@ class TripPageState extends State<TripPage> {
         ),
         _flights(context, date),
         _lodging(context, date),
+        _transit(context, date),
         _sectionTitle("Activities"),
       ],
     );
@@ -267,6 +274,23 @@ class TripPageState extends State<TripPage> {
               metadata: null,
               initiallyExpanded: false,
             );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _transit(BuildContext context, DateTime date) {
+    if (!transitByDate.containsKey(date)) {
+      return Container();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle("Transit"),
+        Column(
+          children: transitByDate[date]!.map((transit) {
+            return renderTransit(transit, initiallyExpanded: false);
           }).toList(),
         ),
       ],
@@ -324,6 +348,29 @@ class TripPageState extends State<TripPage> {
     }
     return flightsByDate;
   }
+
+  Widget renderTransit(TransitBlock block, {bool initiallyExpanded = true}) {
+    switch (block.type) {
+      case "train":
+        return TransitBlockWidget(
+          transitBlock: block,
+          transitType: TransitType.train,
+          initiallyExpanded: initiallyExpanded,
+        );
+      case "bus":
+        return TransitBlockWidget(
+          transitBlock: block,
+          transitType: TransitType.bus,
+          initiallyExpanded: initiallyExpanded,
+        );
+      default:
+        return TransitBlockWidget(
+          transitBlock: block,
+          transitType: TransitType.other,
+          initiallyExpanded: initiallyExpanded,
+        );
+    }
+  }
 }
 
 Map<DateTime, List<HotelBlock>> getHotelsByDate(TripPlanResponse fetchedPlan) {
@@ -350,6 +397,32 @@ Map<DateTime, List<HotelBlock>> getHotelsByDate(TripPlanResponse fetchedPlan) {
     }
   }
   return hotelsByDate;
+}
+
+Map<DateTime, List<TransitBlock>> getTransitByDate(
+    TripPlanResponse fetchedPlan) {
+  Map<DateTime, List<TransitBlock>> transitByDate = {};
+  for (Section section in fetchedPlan.tripPlan.itinerary.sections) {
+    for (Block block in section.blocks) {
+      if (block is TransitBlock) {
+        DateTime departDate = DateTime.parse(block.depart.date);
+        DateTime arriveDate = DateTime.parse(block.arrive.date);
+
+        if (!transitByDate.containsKey(departDate)) {
+          transitByDate[departDate] = [];
+        }
+        transitByDate[departDate]!.add(block);
+
+        if (arriveDate != departDate) {
+          if (!transitByDate.containsKey(arriveDate)) {
+            transitByDate[arriveDate] = [];
+          }
+          transitByDate[arriveDate]!.add(block);
+        }
+      }
+    }
+  }
+  return transitByDate;
 }
 
 List<String>? getListStrings(List<dynamic>? json) {

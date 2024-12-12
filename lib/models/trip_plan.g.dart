@@ -232,6 +232,20 @@ Map<String, dynamic> _$DepartArriveToJson(DepartArrive instance) =>
       'airport': instance.airport,
     };
 
+DepartArrivePlace _$DepartArrivePlaceFromJson(Map<String, dynamic> json) =>
+    DepartArrivePlace(
+      date: json['date'] as String,
+      time: json['time'] as String?,
+      place: GooglePlace.fromJson(json['place'] as Map<String, dynamic>),
+    );
+
+Map<String, dynamic> _$DepartArrivePlaceToJson(DepartArrivePlace instance) =>
+    <String, dynamic>{
+      'date': instance.date,
+      'time': instance.time,
+      'place': instance.place,
+    };
+
 FlightInfo _$FlightInfoFromJson(Map<String, dynamic> json) => FlightInfo(
       airline: Airline.fromJson(json['airline'] as Map<String, dynamic>),
       number: (json['number'] as num).toInt(),
@@ -272,4 +286,23 @@ Map<String, dynamic> _$HotelToJson(Hotel instance) => <String, dynamic>{
       'checkIn': instance.checkIn,
       'checkOut': instance.checkOut,
       'confirmationNumber': instance.confirmationNumber,
+    };
+
+TransitBlock _$TransitBlockFromJson(Map<String, dynamic> json) => TransitBlock(
+      depart:
+          DepartArrivePlace.fromJson(json['depart'] as Map<String, dynamic>),
+      arrive:
+          DepartArrivePlace.fromJson(json['arrive'] as Map<String, dynamic>),
+      confirmationNumber: json['confirmationNumber'] as String?,
+      carrier: json['carrier'] as String?,
+      type: json['type'] as String,
+    );
+
+Map<String, dynamic> _$TransitBlockToJson(TransitBlock instance) =>
+    <String, dynamic>{
+      'type': instance.type,
+      'depart': instance.depart,
+      'arrive': instance.arrive,
+      'confirmationNumber': instance.confirmationNumber,
+      'carrier': instance.carrier,
     };
