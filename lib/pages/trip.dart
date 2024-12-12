@@ -10,6 +10,7 @@ import 'package:wanderlog_alt/widgets/blocks/hotel_block.dart';
 import 'package:wanderlog_alt/widgets/blocks/note_block.dart';
 import 'package:wanderlog_alt/widgets/blocks/place_block.dart';
 import 'package:wanderlog_alt/widgets/blocks/transit_block.dart';
+import 'package:wanderlog_alt/services/trip_cache_service.dart';
 
 class TripPage extends StatefulWidget {
   final String? tripId;
@@ -28,6 +29,7 @@ class TripPageState extends State<TripPage> {
   Map<DateTime, List<FlightBlock>> flightsByDate = {};
   Map<DateTime, List<HotelBlock>> hotelsByDate = {};
   Map<DateTime, List<TransitBlock>> transitByDate = {};
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -39,7 +41,7 @@ class TripPageState extends State<TripPage> {
       });
     } else {
       tripId = widget.tripId;
-      loadTripData();
+      _loadTripWithCache();
     }
   }
 
@@ -51,7 +53,32 @@ class TripPageState extends State<TripPage> {
     }
   }
 
-  void loadTripData() async {
+  Future<void> _loadTripWithCache() async {
+    if (tripId == null) return;
+
+    // Try to load cached data first
+    final cachedData = await TripCacheService.getCachedTrip(tripId!);
+    if (cachedData != null) {
+      _updateTripData(cachedData);
+      return;
+    }
+
+    // Load fresh data
+    await loadTripData();
+  }
+
+  void _updateTripData(Map<String, dynamic> tripData) {
+    final fetchedPlan = TripPlanResponse.fromJson(tripData);
+    setState(() {
+      flightsByDate = getFlightsByDate(fetchedPlan);
+      hotelsByDate = getHotelsByDate(fetchedPlan);
+      transitByDate = getTransitByDate(fetchedPlan);
+      plan = fetchedPlan;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> loadTripData() async {
     if (tripId == null) {
       if (mounted) {
         // Show SnackBar saying that the trip ID is missing
@@ -63,23 +90,31 @@ class TripPageState extends State<TripPage> {
       }
       return;
     }
-    log("Loading trip data for $tripId");
-    Uri url = Uri.parse('$apiUrl/$tripId?clientSchemaVersion=2');
-    if (!isProduction) {
-      url = Uri.parse("http://127.0.0.1:5005/thailand2.json");
-    }
-    http.get(url).then((response) {
-      // Parse response
+
+    try {
+      log("Loading trip data for $tripId");
+      Uri url = Uri.parse('$apiUrl/$tripId?clientSchemaVersion=2');
+      if (!isProduction) {
+        url = Uri.parse("http://127.0.0.1:5005/thailand2.json");
+      }
+
+      final response = await http.get(url);
       final tripData = jsonDecode(response.body);
+
+      // Cache the response
+      await TripCacheService.cacheTrip(tripId!, tripData);
+
       // Update state with trip data
-      TripPlanResponse fetchedPlan = TripPlanResponse.fromJson(tripData);
-      setState(() {
-        flightsByDate = getFlightsByDate(fetchedPlan);
-        hotelsByDate = getHotelsByDate(fetchedPlan);
-        transitByDate = getTransitByDate(fetchedPlan);
-        plan = fetchedPlan;
-      });
-    });
+      _updateTripData(tripData);
+    } catch (e) {
+      log('Error loading trip data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load trip data: ${e.toString()}')),
+        );
+      }
+      setState(() => _isLoading = false);
+    }
   }
 
   void reloadTrip(String? newTripId) {
@@ -87,10 +122,9 @@ class TripPageState extends State<TripPage> {
       // Reset any existing state
       plan = null;
       tripId = newTripId;
-
-      // Trigger new data load
+      _isLoading = true;
     });
-    loadTripData();
+    _loadTripWithCache();
   }
 
   void showTripIdDialog() {
@@ -141,8 +175,11 @@ class TripPageState extends State<TripPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (plan == null) {
+    if (_isLoading && plan == null) {
       return const Center(child: CircularProgressIndicator());
+    }
+    if (plan == null) {
+      return Center(child: Text('No trip data for $tripId'));
     }
     Map<String, PlaceMetadata> pm =
         getPlaceMetadata(plan!.resources.placeMetadata);
