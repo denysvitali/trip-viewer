@@ -549,8 +549,13 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
           ],
           if (widget.transit.isNotEmpty) ...[
             _buildSectionTitle(context, 'Transit'),
-            ...widget.transit.map((t) => TransitBlockWidget(
-                transitBlock: t, transitType: getTransitType(t.type))),
+            ...widget.transit.map(
+              (t) => TransitBlockWidget(
+                transitBlock: t,
+                transitType: getTransitType(t.type),
+                initiallyExpanded: false,
+              ),
+            ),
           ],
           _buildSectionTitle(context, 'Activities'),
           ..._activities.map((b) => PlaceBlockWidget(
