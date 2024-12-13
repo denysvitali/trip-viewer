@@ -254,13 +254,16 @@ class TripPageState extends State<TripPage> {
       appBar: AppBar(
         title: Text('${plan!.tripPlan.title} ($tripId)'),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(72),
-          child: CalendarStrip(
-            dates: dates,
-            selectedIndex: _currentPage,
-            onDateSelected: (index) {
-              _pageController.jumpToPage(index);
-            },
+          preferredSize: const Size.fromHeight(100),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: CalendarStrip(
+              dates: dates,
+              selectedIndex: _currentPage,
+              onDateSelected: (index) {
+                _pageController.jumpToPage(index);
+              },
+            ),
           ),
         ),
       ),
@@ -503,15 +506,9 @@ class DayView extends StatefulWidget {
 }
 
 class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
-  late final List<PlaceBlock> _activities;
-
   @override
   void initState() {
     super.initState();
-    _activities = widget.section.blocks
-        .where((b) => b is PlaceBlock && (b).hotel == null)
-        .cast<PlaceBlock>()
-        .toList();
   }
 
   @override
@@ -558,10 +555,18 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
             ),
           ],
           _buildSectionTitle(context, 'Activities'),
-          ..._activities.map((b) => PlaceBlockWidget(
+          ...widget.section.blocks.map((b) {
+            if (b is PlaceBlock) {
+              return PlaceBlockWidget(
                 placeBlock: b,
                 metadata: widget.placeMetadata[b.place.placeId],
-              )),
+              );
+            }
+            if (b is NoteBlock) {
+              return NoteBlockWidget(block: b);
+            }
+            return Container();
+          }),
         ],
       ),
     );
