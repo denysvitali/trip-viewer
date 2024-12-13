@@ -271,7 +271,6 @@ class TripPageState extends State<TripPage> {
         controller: _pageController,
         onPageChanged: (page) => setState(() => _currentPage = page),
         itemCount: dates.length,
-        // Add key to PageView for maintaining scroll position
         key: const PageStorageKey<String>('trip-page-view'),
         itemBuilder: (context, index) {
           final date = dates[index];
@@ -295,6 +294,7 @@ class TripPageState extends State<TripPage> {
             hotels: hotelsByDate[date] ?? [],
             transit: transitByDate[date] ?? [],
             placeMetadata: pm,
+            onRefresh: loadTripData,
           );
         },
       ),
@@ -483,13 +483,13 @@ List<String>? getListStrings(List<dynamic>? json) {
 }
 
 class DayView extends StatefulWidget {
-  // Changed to StatefulWidget
   final DateTime date;
   final Section section;
   final List<FlightBlock> flights;
   final List<PlaceBlock> hotels;
   final List<TransitBlock> transit;
   final Map<String, PlaceMetadata> placeMetadata;
+  final Future<void> Function()? onRefresh;
 
   const DayView({
     super.key,
@@ -499,6 +499,7 @@ class DayView extends StatefulWidget {
     required this.hotels,
     required this.transit,
     required this.placeMetadata,
+    this.onRefresh,
   });
 
   @override
@@ -520,54 +521,58 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
 
     return PageStorage(
       bucket: PageStorageBucket(),
-      child: ListView(
-        key: PageStorageKey('day-view-${widget.date}'),
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildHeader(context),
-          if (widget.flights.isNotEmpty) ...[
-            _buildSectionTitle(context, 'Flights'),
-            ...widget.flights.map(
-              (f) => FlightBlockWidget(
-                flightBlock: f,
-                initiallyExpanded: false,
+      child: RefreshIndicator(
+        // Wrap with RefreshIndicator
+        onRefresh: widget.onRefresh ?? () => Future.value(),
+        child: ListView(
+          key: PageStorageKey('day-view-${widget.date}'),
+          padding: const EdgeInsets.all(16),
+          children: [
+            _buildHeader(context),
+            if (widget.flights.isNotEmpty) ...[
+              _buildSectionTitle(context, 'Flights'),
+              ...widget.flights.map(
+                (f) => FlightBlockWidget(
+                  flightBlock: f,
+                  initiallyExpanded: false,
+                ),
               ),
-            ),
-          ],
-          if (widget.hotels.isNotEmpty) ...[
-            _buildSectionTitle(context, 'Lodging'),
-            ...widget.hotels.map(
-              (h) => HotelBlockWidget(
-                placeBlock: h,
-                metadata: widget.placeMetadata[h.place.placeId],
-                initiallyExpanded: false,
+            ],
+            if (widget.hotels.isNotEmpty) ...[
+              _buildSectionTitle(context, 'Lodging'),
+              ...widget.hotels.map(
+                (h) => HotelBlockWidget(
+                  placeBlock: h,
+                  metadata: widget.placeMetadata[h.place.placeId],
+                  initiallyExpanded: false,
+                ),
               ),
-            ),
-          ],
-          if (widget.transit.isNotEmpty) ...[
-            _buildSectionTitle(context, 'Transit'),
-            ...widget.transit.map(
-              (t) => TransitBlockWidget(
-                transitBlock: t,
-                transitType: getTransitType(t.type),
-                initiallyExpanded: false,
+            ],
+            if (widget.transit.isNotEmpty) ...[
+              _buildSectionTitle(context, 'Transit'),
+              ...widget.transit.map(
+                (t) => TransitBlockWidget(
+                  transitBlock: t,
+                  transitType: getTransitType(t.type),
+                  initiallyExpanded: false,
+                ),
               ),
-            ),
+            ],
+            _buildSectionTitle(context, 'Activities'),
+            ...widget.section.blocks.map((b) {
+              if (b is PlaceBlock) {
+                return PlaceBlockWidget(
+                  placeBlock: b,
+                  metadata: widget.placeMetadata[b.place.placeId],
+                );
+              }
+              if (b is NoteBlock) {
+                return NoteBlockWidget(block: b);
+              }
+              return Container();
+            }),
           ],
-          _buildSectionTitle(context, 'Activities'),
-          ...widget.section.blocks.map((b) {
-            if (b is PlaceBlock) {
-              return PlaceBlockWidget(
-                placeBlock: b,
-                metadata: widget.placeMetadata[b.place.placeId],
-              );
-            }
-            if (b is NoteBlock) {
-              return NoteBlockWidget(block: b);
-            }
-            return Container();
-          }),
-        ],
+        ),
       ),
     );
   }
