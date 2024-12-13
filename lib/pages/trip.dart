@@ -27,7 +27,7 @@ class TripPageState extends State<TripPage> {
   TripPlanResponse? plan;
   String? tripId;
   Map<DateTime, List<FlightBlock>> flightsByDate = {};
-  Map<DateTime, List<HotelBlock>> hotelsByDate = {};
+  Map<DateTime, List<PlaceBlock>> hotelsByDate = {};
   Map<DateTime, List<TransitBlock>> transitByDate = {};
   bool _isLoading = true;
   final ScrollController _scrollController = ScrollController();
@@ -326,7 +326,11 @@ class TripPageState extends State<TripPage> {
 
   Widget renderPlace(PlaceBlock placeBlock, PlaceMetadata? metadata) {
     if (placeBlock.hotel != null) {
-      return HotelBlock(placeBlock: placeBlock, metadata: metadata);
+      return HotelBlockWidget(
+        placeBlock: placeBlock,
+        metadata: metadata,
+        initiallyExpanded: false,
+      );
     }
     return PlaceBlockWidget(placeBlock: placeBlock, metadata: metadata);
   }
@@ -413,24 +417,27 @@ class TimelineSection extends StatelessWidget {
   }
 }
 
-Map<DateTime, List<HotelBlock>> getHotelsByDate(TripPlanResponse fetchedPlan) {
-  Map<DateTime, List<HotelBlock>> hotelsByDate = {};
+Map<DateTime, List<PlaceBlock>> getHotelsByDate(TripPlanResponse fetchedPlan) {
+  Map<DateTime, List<PlaceBlock>> hotelsByDate = {};
   for (Section section in fetchedPlan.tripPlan.itinerary.sections) {
     for (Block block in section.blocks) {
       if (block is PlaceBlock) {
         if (block.hotel != null) {
-          DateTime checkIn = DateTime.parse(block.hotel!.checkIn!);
-          DateTime checkOut = DateTime.parse(block.hotel!.checkOut!);
-          for (DateTime date = checkIn;
-              date.isBefore(checkOut);
+          DateTime checkInDate = DateTime.parse(block.hotel!.checkIn!);
+          DateTime checkOutDate = DateTime.parse(block.hotel!.checkOut!);
+
+          if (checkInDate.isAfter(checkOutDate)) {
+            log('Invalid hotel dates: $checkInDate - $checkOutDate');
+            continue;
+          }
+
+          for (DateTime date = checkInDate;
+              date.isBefore(checkOutDate);
               date = date.add(const Duration(days: 1))) {
             if (!hotelsByDate.containsKey(date)) {
               hotelsByDate[date] = [];
             }
-            hotelsByDate[date]!.add(HotelBlock(
-              placeBlock: block,
-              metadata: null,
-            ));
+            hotelsByDate[date]!.add(block);
           }
         }
       }
@@ -477,7 +484,7 @@ class DayView extends StatefulWidget {
   final DateTime date;
   final Section section;
   final List<FlightBlock> flights;
-  final List<HotelBlock> hotels;
+  final List<PlaceBlock> hotels;
   final List<TransitBlock> transit;
   final Map<String, PlaceMetadata> placeMetadata;
 
@@ -523,11 +530,22 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
           _buildHeader(context),
           if (widget.flights.isNotEmpty) ...[
             _buildSectionTitle(context, 'Flights'),
-            ...widget.flights.map((f) => FlightBlockWidget(flightBlock: f)),
+            ...widget.flights.map(
+              (f) => FlightBlockWidget(
+                flightBlock: f,
+                initiallyExpanded: false,
+              ),
+            ),
           ],
           if (widget.hotels.isNotEmpty) ...[
             _buildSectionTitle(context, 'Lodging'),
-            ...widget.hotels,
+            ...widget.hotels.map(
+              (h) => HotelBlockWidget(
+                placeBlock: h,
+                metadata: widget.placeMetadata[h.place.placeId],
+                initiallyExpanded: false,
+              ),
+            ),
           ],
           if (widget.transit.isNotEmpty) ...[
             _buildSectionTitle(context, 'Transit'),

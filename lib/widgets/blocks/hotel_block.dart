@@ -120,12 +120,12 @@ class _ConfirmationNumber extends StatelessWidget {
   }
 }
 
-class HotelBlock extends StatefulWidget {
+class HotelBlockWidget extends StatefulWidget {
   final PlaceBlock placeBlock;
   final PlaceMetadata? metadata;
   final bool initiallyExpanded;
 
-  const HotelBlock({
+  const HotelBlockWidget({
     super.key,
     required this.placeBlock,
     required this.metadata,
@@ -133,10 +133,10 @@ class HotelBlock extends StatefulWidget {
   });
 
   @override
-  State<HotelBlock> createState() => _HotelBlockState();
+  State<HotelBlockWidget> createState() => _HotelBlockWidgetState();
 }
 
-class _HotelBlockState extends State<HotelBlock>
+class _HotelBlockWidgetState extends State<HotelBlockWidget>
     with SingleTickerProviderStateMixin {
   late bool _isExpanded;
   late AnimationController _controller;
