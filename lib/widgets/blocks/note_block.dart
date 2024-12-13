@@ -14,7 +14,7 @@ class NoteBlockWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: block.text.ops
             .map(
-              (e) => Text(
+              (e) => SelectableText(
                 e.insert.trimRight(),
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
