@@ -116,6 +116,7 @@ class Block {
         return NoteBlock.fromJson(json);
       case 'bus':
       case 'train':
+      case 'ferry':
         return TransitBlock.fromJson(json);
     }
     return Block(type: json['type'], imageKeys: json['image_keys'] ?? []);
