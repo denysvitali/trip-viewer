@@ -12,6 +12,7 @@ import 'package:wanderlog_alt/widgets/blocks/note_block.dart';
 import 'package:wanderlog_alt/widgets/blocks/place_block.dart';
 import 'package:wanderlog_alt/widgets/blocks/transit_block.dart';
 import 'package:wanderlog_alt/services/trip_cache_service.dart';
+import 'package:wanderlog_alt/pages/expenses.dart'; // P3189
 
 class TripPage extends StatefulWidget {
   final String? tripId;
@@ -278,6 +279,19 @@ class TripPageState extends State<TripPage> {
             ),
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ExpensesPage(expenses: plan!.tripPlan.expenses ?? []),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: PageView.builder(
         controller: _pageController,
