@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:collection';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -472,6 +473,16 @@ Map<DateTime, List<TransitBlock>> getTransitByDate(
       }
     }
   }
+
+  // Sort the transit blocks by their start time within each date
+  for (var date in transitByDate.keys) {
+    transitByDate[date]!.sort((a, b) {
+      final aTime = a.depart.time ?? '00:00';
+      final bTime = b.depart.time ?? '00:00';
+      return aTime.compareTo(bTime);
+    });
+  }
+
   return transitByDate;
 }
 
