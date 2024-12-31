@@ -8,9 +8,10 @@ TripPlanResponse _$TripPlanResponseFromJson(Map<String, dynamic> json) =>
     TripPlanResponse(
       tripPlan: TripPlan.fromJson(json['tripPlan'] as Map<String, dynamic>),
       resources: Resources.fromJson(json['resources'] as Map<String, dynamic>),
-      expenses: (json['expenses'] as List<dynamic>)
-          .map((e) => Expense.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      expenses: (json['expenses'] as List<dynamic>?)
+              ?.map((e) => Expense.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
 
 Map<String, dynamic> _$TripPlanResponseToJson(TripPlanResponse instance) =>
