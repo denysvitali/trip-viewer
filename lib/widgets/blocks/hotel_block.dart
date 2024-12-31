@@ -91,6 +91,8 @@ class _HotelInfo extends StatelessWidget {
         const Spacer(),
         if (placeBlock.hotel?.confirmationNumber != null)
           _ConfirmationNumber(number: placeBlock.hotel!.confirmationNumber!),
+        if (placeBlock.price != null)
+          _PriceInfo(price: placeBlock.price!),
       ],
     );
   }
@@ -113,6 +115,30 @@ class _ConfirmationNumber extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           number,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      ],
+    );
+  }
+}
+
+class _PriceInfo extends StatelessWidget {
+  final Expense price;
+
+  const _PriceInfo({required this.price});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          Icons.attach_money,
+          size: 18,
+          color: Theme.of(context).colorScheme.secondary,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '${price.amount} ${price.currencyCode}',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
       ],

@@ -103,9 +103,19 @@ class FlightFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      '${flightBlock.flightInfo.airline.name} ${flightBlock.flightInfo.number}',
-      style: Theme.of(context).textTheme.titleSmall,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          '${flightBlock.flightInfo.airline.name} ${flightBlock.flightInfo.number}',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        if (flightBlock.price != null)
+          Text(
+            '${flightBlock.price!.amount} ${flightBlock.price!.currencyCode}',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+      ],
     );
   }
 }

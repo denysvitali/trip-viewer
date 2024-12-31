@@ -117,7 +117,20 @@ class TransitFooter extends StatelessWidget {
               transitBlock.confirmationNumber ?? '',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
-          ])
+          ]),
+        if (transitBlock.price != null)
+          Row(children: [
+            Icon(
+              Icons.attach_money,
+              color: Theme.of(context).colorScheme.secondary,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${transitBlock.price!.amount} ${transitBlock.price!.currencyCode}',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ]),
       ]),
     );
   }

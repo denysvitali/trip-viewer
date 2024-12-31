@@ -6,8 +6,9 @@ part 'trip_plan.g.dart';
 class TripPlanResponse {
   final TripPlan tripPlan;
   final Resources resources;
+  final List<Expense> expenses;
 
-  const TripPlanResponse({required this.tripPlan, required this.resources});
+  const TripPlanResponse({required this.tripPlan, required this.resources, required this.expenses});
   factory TripPlanResponse.fromJson(Map<String, dynamic> json) =>
       _$TripPlanResponseFromJson(json);
 }
@@ -104,7 +105,9 @@ Block getBlock(Map<String, dynamic> json) {
 class Block {
   final String type;
   final List<String> imageKeys;
-  Block({required this.type, this.imageKeys = const []});
+  final Expense? price;
+
+  Block({required this.type, this.imageKeys = const [], this.price});
 
   factory Block.fromJson(Map<String, dynamic> json) {
     switch (json['type']) {
@@ -119,7 +122,7 @@ class Block {
       case 'ferry':
         return TransitBlock.fromJson(json);
     }
-    return Block(type: json['type'], imageKeys: json['image_keys'] ?? []);
+    return Block(type: json['type'], imageKeys: json['image_keys'] ?? [], price: json['price'] != null ? Expense.fromJson(json['price']) : null);
   }
 }
 
@@ -135,6 +138,7 @@ class PlaceBlock extends Block {
     required this.startTime,
     required this.endTime,
     super.imageKeys,
+    super.price,
   }) : super(type: 'place');
 
   factory PlaceBlock.fromJson(Map<String, dynamic> json) =>
@@ -161,7 +165,7 @@ class TextContainer {
 @JsonSerializable()
 class NoteBlock extends Block {
   final TextContainer text;
-  NoteBlock({required this.text, super.imageKeys}) : super(type: 'note');
+  NoteBlock({required this.text, super.imageKeys, super.price}) : super(type: 'note');
   factory NoteBlock.fromJson(Map<String, dynamic> json) =>
       _$NoteBlockFromJson(json);
 }
@@ -288,6 +292,7 @@ class FlightBlock extends Block {
     required this.depart,
     required this.arrive,
     super.imageKeys,
+    super.price,
   }) : super(type: 'flight');
 
   factory FlightBlock.fromJson(Map<String, dynamic> json) =>
@@ -322,8 +327,31 @@ class TransitBlock extends Block {
     required this.confirmationNumber,
     required this.carrier,
     required super.type,
+    super.price,
   });
 
   factory TransitBlock.fromJson(Map<String, dynamic> json) =>
       _$TransitBlockFromJson(json);
+}
+
+@JsonSerializable()
+class Expense {
+  final int id;
+  final int amount;
+  final String currencyCode;
+  final String category;
+  final String? description;
+  final int blockId;
+
+  Expense({
+    required this.id,
+    required this.amount,
+    required this.currencyCode,
+    required this.category,
+    required this.description,
+    required this.blockId,
+  });
+
+  factory Expense.fromJson(Map<String, dynamic> json) =>
+      _$ExpenseFromJson(json);
 }
