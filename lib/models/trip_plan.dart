@@ -51,13 +51,13 @@ class TripPlan {
   final String title;
   final int viewCount;
   final Itinerary itinerary;
-  final List<Expense> expenses;
+  final List<Expense>? expenses;
 
   const TripPlan({
     required this.title,
     this.viewCount = 0,
     required this.itinerary,
-    required this.expenses,
+    this.expenses,
   });
   factory TripPlan.fromJson(Map<String, dynamic> json) =>
       _$TripPlanFromJson(json);
