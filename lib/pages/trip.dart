@@ -81,15 +81,24 @@ class TripPageState extends State<TripPage> {
   Future<void> _loadTripWithCache() async {
     if (tripId == null) return;
 
-    // Try to load cached data first
-    final cachedData = await TripCacheService.getCachedTrip(tripId!);
-    if (cachedData != null) {
-      _updateTripData(cachedData);
-      return;
-    }
+    try {
+      // Try to load cached data first
+      final cachedData = await TripCacheService.getCachedTrip(tripId!);
+      if (cachedData != null) {
+        _updateTripData(cachedData);
+        return;
+      }
 
-    // Load fresh data
-    await loadTripData();
+      // Load fresh data
+      await loadTripData();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load trip data: ${e.toString()}')),
+        );
+      }
+      setState(() => _isLoading = false);
+    }
   }
 
   void _updateTripData(Map<String, dynamic> tripData) {
