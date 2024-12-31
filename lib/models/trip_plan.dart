@@ -6,9 +6,8 @@ part 'trip_plan.g.dart';
 class TripPlanResponse {
   final TripPlan tripPlan;
   final Resources resources;
-  final List<Expense> expenses;
 
-  const TripPlanResponse({required this.tripPlan, required this.resources, required this.expenses});
+  const TripPlanResponse({required this.tripPlan, required this.resources});
   factory TripPlanResponse.fromJson(Map<String, dynamic> json) =>
       _$TripPlanResponseFromJson(json);
 }
@@ -52,10 +51,13 @@ class TripPlan {
   final String title;
   final int viewCount;
   final Itinerary itinerary;
+  final List<Expense> expenses;
+
   const TripPlan({
     required this.title,
     this.viewCount = 0,
     required this.itinerary,
+    required this.expenses,
   });
   factory TripPlan.fromJson(Map<String, dynamic> json) =>
       _$TripPlanFromJson(json);
@@ -106,9 +108,9 @@ class Block {
   final String type;
   final List<String> imageKeys;
   final Expense? price;
-  final int? expenseId; // Pbbc8
+  final int? expenseId;
 
-  Block({required this.type, this.imageKeys = const [], this.price, this.expenseId}); // Pbbc8
+  Block({required this.type, this.imageKeys = const [], this.price, this.expenseId});
 
   factory Block.fromJson(Map<String, dynamic> json) {
     switch (json['type']) {
@@ -123,7 +125,7 @@ class Block {
       case 'ferry':
         return TransitBlock.fromJson(json);
     }
-    return Block(type: json['type'], imageKeys: json['image_keys'] ?? [], price: json['price'] != null ? Expense.fromJson(json['price']) : null, expenseId: json['expenseId']); // P1cd8
+    return Block(type: json['type'], imageKeys: json['image_keys'] ?? [], price: json['price'] != null ? Expense.fromJson(json['price']) : null, expenseId: json['expenseId']);
   }
 }
 
@@ -140,7 +142,7 @@ class PlaceBlock extends Block {
     required this.endTime,
     super.imageKeys,
     super.price,
-    super.expenseId, // Pbbc8
+    super.expenseId,
   }) : super(type: 'place');
 
   factory PlaceBlock.fromJson(Map<String, dynamic> json) =>
@@ -167,7 +169,7 @@ class TextContainer {
 @JsonSerializable()
 class NoteBlock extends Block {
   final TextContainer text;
-  NoteBlock({required this.text, super.imageKeys, super.price, super.expenseId}) : super(type: 'note'); // Pbbc8
+  NoteBlock({required this.text, super.imageKeys, super.price, super.expenseId}) : super(type: 'note');
   factory NoteBlock.fromJson(Map<String, dynamic> json) =>
       _$NoteBlockFromJson(json);
 }
@@ -295,7 +297,7 @@ class FlightBlock extends Block {
     required this.arrive,
     super.imageKeys,
     super.price,
-    super.expenseId, // Pbbc8
+    super.expenseId,
   }) : super(type: 'flight');
 
   factory FlightBlock.fromJson(Map<String, dynamic> json) =>
@@ -331,7 +333,7 @@ class TransitBlock extends Block {
     required this.carrier,
     required super.type,
     super.price,
-    super.expenseId, // Pbbc8
+    super.expenseId,
   });
 
   factory TransitBlock.fromJson(Map<String, dynamic> json) =>

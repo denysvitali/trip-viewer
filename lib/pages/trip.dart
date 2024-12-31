@@ -385,7 +385,7 @@ class TripPageState extends State<TripPage> {
 
   Map<int, Expense> getExpensesById(TripPlanResponse fetchedPlan) {
     Map<int, Expense> expensesById = {};
-    for (Expense expense in fetchedPlan.expenses) {
+    for (Expense expense in fetchedPlan.tripPlan.expenses) {
       expensesById[expense.id] = expense;
     }
     return expensesById;
@@ -568,6 +568,7 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
                 (f) => FlightBlockWidget(
                   flightBlock: f,
                   initiallyExpanded: false,
+                  expense: widget.expensesById[f.expenseId], // P4aa5
                 ),
               ),
             ],
@@ -578,6 +579,7 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
                   placeBlock: h,
                   metadata: widget.placeMetadata[h.place.placeId],
                   initiallyExpanded: false,
+                  expense: widget.expensesById[h.expenseId], // P4aa5
                 ),
               ),
             ],
@@ -588,6 +590,7 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
                   transitBlock: t,
                   transitType: getTransitType(t.type),
                   initiallyExpanded: false,
+                  expense: widget.expensesById[t.expenseId], // P4aa5
                 ),
               ),
             ],
@@ -597,6 +600,7 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
                 return PlaceBlockWidget(
                   placeBlock: b,
                   metadata: widget.placeMetadata[b.place.placeId],
+                  expense: widget.expensesById[b.expenseId], // P4aa5
                 );
               }
               if (b is NoteBlock) {
