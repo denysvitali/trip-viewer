@@ -41,3 +41,22 @@ jobs:
         track: internal
         status: draft
       if: github.ref == 'refs/heads/master'
+
+  build_debug_apk:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-java@v2
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+    - uses: subosito/flutter-action@v2
+      with:
+        channel: stable
+    - run: flutter pub get
+    - run: flutter build apk --debug
+    - name: Upload debug APK
+      uses: actions/upload-artifact@v2
+      with:
+        name: debug-apk
+        path: build/app/outputs/flutter-apk/app-debug.apk
