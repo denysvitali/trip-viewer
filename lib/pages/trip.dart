@@ -385,8 +385,10 @@ class TripPageState extends State<TripPage> {
 
   Map<int, Expense> getExpensesById(TripPlanResponse fetchedPlan) {
     Map<int, Expense> expensesById = {};
-    for (Expense expense in fetchedPlan.tripPlan.expenses) {
-      expensesById[expense.id] = expense;
+    if (fetchedPlan.tripPlan.expenses != null) {
+      for (Expense expense in fetchedPlan.tripPlan.expenses!) {
+        expensesById[expense.id] = expense;
+      }
     }
     return expensesById;
   }
