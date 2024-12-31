@@ -6,11 +6,13 @@ import 'package:wanderlog_alt/widgets/place_image.dart';
 class PlaceBlockWidget extends StatelessWidget {
   final PlaceBlock placeBlock;
   final PlaceMetadata? metadata;
+  final Expense? expense;
 
   const PlaceBlockWidget({
     super.key,
     required this.placeBlock,
     required this.metadata,
+    this.expense,
   });
 
   @override
@@ -39,6 +41,16 @@ class PlaceBlockWidget extends StatelessWidget {
               children: [
                 _header(context),
                 _body(context),
+                if (placeBlock.price != null)
+                  Text(
+                    '${placeBlock.price!.amount} ${placeBlock.price!.currencyCode}',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                if (expense != null)
+                  Text(
+                    '${expense!.amount} ${expense!.currencyCode}',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
               ],
             ),
           ),

@@ -1,5 +1,3 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
-
 part of 'trip_plan.dart';
 
 // **************************************************************************
@@ -10,12 +8,16 @@ TripPlanResponse _$TripPlanResponseFromJson(Map<String, dynamic> json) =>
     TripPlanResponse(
       tripPlan: TripPlan.fromJson(json['tripPlan'] as Map<String, dynamic>),
       resources: Resources.fromJson(json['resources'] as Map<String, dynamic>),
+      expenses: (json['expenses'] as List<dynamic>)
+          .map((e) => Expense.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
 
 Map<String, dynamic> _$TripPlanResponseToJson(TripPlanResponse instance) =>
     <String, dynamic>{
       'tripPlan': instance.tripPlan,
       'resources': instance.resources,
+      'expenses': instance.expenses,
     };
 
 PlaceMetadata _$PlaceMetadataFromJson(Map<String, dynamic> json) =>
@@ -95,11 +97,17 @@ Block _$BlockFromJson(Map<String, dynamic> json) => Block(
               ?.map((e) => e as String)
               .toList() ??
           const [],
+      price: json['price'] == null
+          ? null
+          : Expense.fromJson(json['price'] as Map<String, dynamic>),
+      expenseId: json['expenseId'] as int?,
     );
 
 Map<String, dynamic> _$BlockToJson(Block instance) => <String, dynamic>{
       'type': instance.type,
       'imageKeys': instance.imageKeys,
+      'price': instance.price,
+      'expenseId': instance.expenseId,
     };
 
 PlaceBlock _$PlaceBlockFromJson(Map<String, dynamic> json) => PlaceBlock(
@@ -113,6 +121,10 @@ PlaceBlock _$PlaceBlockFromJson(Map<String, dynamic> json) => PlaceBlock(
               ?.map((e) => e as String)
               .toList() ??
           const [],
+      price: json['price'] == null
+          ? null
+          : Expense.fromJson(json['price'] as Map<String, dynamic>),
+      expenseId: json['expenseId'] as int?,
     );
 
 Map<String, dynamic> _$PlaceBlockToJson(PlaceBlock instance) =>
@@ -122,6 +134,8 @@ Map<String, dynamic> _$PlaceBlockToJson(PlaceBlock instance) =>
       'hotel': instance.hotel,
       'startTime': instance.startTime,
       'endTime': instance.endTime,
+      'price': instance.price,
+      'expenseId': instance.expenseId,
     };
 
 TextOps _$TextOpsFromJson(Map<String, dynamic> json) => TextOps(
@@ -152,11 +166,17 @@ NoteBlock _$NoteBlockFromJson(Map<String, dynamic> json) => NoteBlock(
               ?.map((e) => e as String)
               .toList() ??
           const [],
+      price: json['price'] == null
+          ? null
+          : Expense.fromJson(json['price'] as Map<String, dynamic>),
+      expenseId: json['expenseId'] as int?,
     );
 
 Map<String, dynamic> _$NoteBlockToJson(NoteBlock instance) => <String, dynamic>{
       'imageKeys': instance.imageKeys,
       'text': instance.text,
+      'price': instance.price,
+      'expenseId': instance.expenseId,
     };
 
 Airline _$AirlineFromJson(Map<String, dynamic> json) => Airline(
@@ -266,6 +286,10 @@ FlightBlock _$FlightBlockFromJson(Map<String, dynamic> json) => FlightBlock(
               ?.map((e) => e as String)
               .toList() ??
           const [],
+      price: json['price'] == null
+          ? null
+          : Expense.fromJson(json['price'] as Map<String, dynamic>),
+      expenseId: json['expenseId'] as int?,
     );
 
 Map<String, dynamic> _$FlightBlockToJson(FlightBlock instance) =>
@@ -274,6 +298,8 @@ Map<String, dynamic> _$FlightBlockToJson(FlightBlock instance) =>
       'flightInfo': instance.flightInfo,
       'depart': instance.depart,
       'arrive': instance.arrive,
+      'price': instance.price,
+      'expenseId': instance.expenseId,
     };
 
 Hotel _$HotelFromJson(Map<String, dynamic> json) => Hotel(
@@ -296,6 +322,10 @@ TransitBlock _$TransitBlockFromJson(Map<String, dynamic> json) => TransitBlock(
       confirmationNumber: json['confirmationNumber'] as String?,
       carrier: json['carrier'] as String?,
       type: json['type'] as String,
+      price: json['price'] == null
+          ? null
+          : Expense.fromJson(json['price'] as Map<String, dynamic>),
+      expenseId: json['expenseId'] as int?,
     );
 
 Map<String, dynamic> _$TransitBlockToJson(TransitBlock instance) =>
@@ -305,4 +335,24 @@ Map<String, dynamic> _$TransitBlockToJson(TransitBlock instance) =>
       'arrive': instance.arrive,
       'confirmationNumber': instance.confirmationNumber,
       'carrier': instance.carrier,
+      'price': instance.price,
+      'expenseId': instance.expenseId,
+    };
+
+Expense _$ExpenseFromJson(Map<String, dynamic> json) => Expense(
+      id: (json['id'] as num).toInt(),
+      amount: (json['amount'] as num).toInt(),
+      currencyCode: json['currencyCode'] as String,
+      category: json['category'] as String,
+      description: json['description'] as String?,
+      blockId: (json['blockId'] as num).toInt(),
+    );
+
+Map<String, dynamic> _$ExpenseToJson(Expense instance) => <String, dynamic>{
+      'id': instance.id,
+      'amount': instance.amount,
+      'currencyCode': instance.currencyCode,
+      'category': instance.category,
+      'description': instance.description,
+      'blockId': instance.blockId,
     };
