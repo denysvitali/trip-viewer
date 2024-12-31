@@ -30,6 +30,7 @@ class TripPageState extends State<TripPage> {
   Map<DateTime, List<FlightBlock>> flightsByDate = {};
   Map<DateTime, List<PlaceBlock>> hotelsByDate = {};
   Map<DateTime, List<TransitBlock>> transitByDate = {};
+  Map<int, Expense> expensesById = {}; // P0bbf
   bool _isLoading = true;
   final ScrollController _scrollController = ScrollController();
   Map<DateTime, GlobalKey> _dateKeys = {};
@@ -110,6 +111,7 @@ class TripPageState extends State<TripPage> {
       flightsByDate = getFlightsByDate(fetchedPlan);
       hotelsByDate = getHotelsByDate(fetchedPlan);
       transitByDate = getTransitByDate(fetchedPlan);
+      expensesById = getExpensesById(fetchedPlan); // P0bbf
       plan = fetchedPlan;
       _dateKeys = dateKeys;
       _isLoading = false;
@@ -295,6 +297,7 @@ class TripPageState extends State<TripPage> {
             hotels: hotelsByDate[date] ?? [],
             transit: transitByDate[date] ?? [],
             placeMetadata: pm,
+            expensesById: expensesById, // Pe0a4
             onRefresh: loadTripData,
           );
         },
@@ -369,6 +372,14 @@ class TripPageState extends State<TripPage> {
           initiallyExpanded: initiallyExpanded,
         );
     }
+  }
+
+  Map<int, Expense> getExpensesById(TripPlanResponse fetchedPlan) {
+    Map<int, Expense> expensesById = {};
+    for (Expense expense in fetchedPlan.expenses) {
+      expensesById[expense.id] = expense;
+    }
+    return expensesById;
   }
 }
 
@@ -500,6 +511,7 @@ class DayView extends StatefulWidget {
   final List<PlaceBlock> hotels;
   final List<TransitBlock> transit;
   final Map<String, PlaceMetadata> placeMetadata;
+  final Map<int, Expense> expensesById; // Pe0a4
   final Future<void> Function()? onRefresh;
 
   const DayView({
@@ -510,6 +522,7 @@ class DayView extends StatefulWidget {
     required this.hotels,
     required this.transit,
     required this.placeMetadata,
+    required this.expensesById, // Pe0a4
     this.onRefresh,
   });
 

@@ -98,8 +98,9 @@ class AirportInfo extends StatelessWidget {
 
 class FlightFooter extends StatelessWidget {
   final FlightBlock flightBlock;
+  final Expense? expense;
 
-  const FlightFooter({super.key, required this.flightBlock});
+  const FlightFooter({super.key, required this.flightBlock, this.expense});
 
   @override
   Widget build(BuildContext context) {
@@ -110,9 +111,9 @@ class FlightFooter extends StatelessWidget {
           '${flightBlock.flightInfo.airline.name} ${flightBlock.flightInfo.number}',
           style: Theme.of(context).textTheme.titleSmall,
         ),
-        if (flightBlock.price != null)
+        if (expense != null)
           Text(
-            '${flightBlock.price!.amount} ${flightBlock.price!.currencyCode}',
+            '${expense!.amount} ${expense!.currencyCode}',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
       ],
@@ -123,11 +124,13 @@ class FlightFooter extends StatelessWidget {
 class FlightBlockWidget extends StatefulWidget {
   final FlightBlock flightBlock;
   final bool initiallyExpanded;
+  final Expense? expense;
 
   const FlightBlockWidget({
     super.key,
     required this.flightBlock,
     this.initiallyExpanded = true,
+    this.expense,
   });
 
   @override
@@ -262,7 +265,7 @@ class _FlightBlockWidgetState extends State<FlightBlockWidget> {
                 children: [
                   const Icon(Icons.flight, size: 18, color: Colors.grey),
                   const SizedBox(width: 8),
-                  FlightFooter(flightBlock: widget.flightBlock),
+                  FlightFooter(flightBlock: widget.flightBlock, expense: widget.expense),
                 ],
               ),
             ],

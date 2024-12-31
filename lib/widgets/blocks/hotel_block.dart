@@ -81,8 +81,9 @@ class StayDateInfo extends StatelessWidget {
 class _HotelInfo extends StatelessWidget {
   final PlaceBlock placeBlock;
   final PlaceMetadata? metadata;
+  final Expense? expense;
 
-  const _HotelInfo({required this.placeBlock, required this.metadata});
+  const _HotelInfo({required this.placeBlock, required this.metadata, this.expense});
 
   @override
   Widget build(BuildContext context) {
@@ -91,8 +92,11 @@ class _HotelInfo extends StatelessWidget {
         const Spacer(),
         if (placeBlock.hotel?.confirmationNumber != null)
           _ConfirmationNumber(number: placeBlock.hotel!.confirmationNumber!),
-        if (placeBlock.price != null)
-          _PriceInfo(price: placeBlock.price!),
+        if (expense != null)
+          Text(
+            '${expense!.amount} ${expense!.currencyCode}',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
       ],
     );
   }
@@ -122,40 +126,18 @@ class _ConfirmationNumber extends StatelessWidget {
   }
 }
 
-class _PriceInfo extends StatelessWidget {
-  final Expense price;
-
-  const _PriceInfo({required this.price});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(
-          Icons.attach_money,
-          size: 18,
-          color: Theme.of(context).colorScheme.secondary,
-        ),
-        const SizedBox(width: 8),
-        Text(
-          '${price.amount} ${price.currencyCode}',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-      ],
-    );
-  }
-}
-
 class HotelBlockWidget extends StatefulWidget {
   final PlaceBlock placeBlock;
   final PlaceMetadata? metadata;
   final bool initiallyExpanded;
+  final Expense? expense;
 
   const HotelBlockWidget({
     super.key,
     required this.placeBlock,
     required this.metadata,
     this.initiallyExpanded = true,
+    this.expense,
   });
 
   @override
@@ -272,6 +254,7 @@ class _HotelBlockWidgetState extends State<HotelBlockWidget>
                               _HotelInfo(
                                 placeBlock: widget.placeBlock,
                                 metadata: widget.metadata,
+                                expense: widget.expense,
                               ),
                             ],
                           ),

@@ -94,8 +94,9 @@ class StationInfo extends StatelessWidget {
 
 class TransitFooter extends StatelessWidget {
   final TransitBlock transitBlock;
+  final Expense? expense;
 
-  const TransitFooter({super.key, required this.transitBlock});
+  const TransitFooter({super.key, required this.transitBlock, this.expense});
 
   @override
   Widget build(BuildContext context) {
@@ -118,7 +119,7 @@ class TransitFooter extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ]),
-        if (transitBlock.price != null)
+        if (expense != null)
           Row(children: [
             Icon(
               Icons.attach_money,
@@ -127,7 +128,7 @@ class TransitFooter extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              '${transitBlock.price!.amount} ${transitBlock.price!.currencyCode}',
+              '${expense!.amount} ${expense!.currencyCode}',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ]),
@@ -146,12 +147,14 @@ class TransitBlockWidget extends StatefulWidget {
   final TransitBlock transitBlock;
   final bool initiallyExpanded;
   final TransitType transitType;
+  final Expense? expense;
 
   const TransitBlockWidget({
     super.key,
     required this.transitBlock,
     required this.transitType,
     this.initiallyExpanded = true,
+    this.expense,
   });
 
   @override
@@ -283,7 +286,7 @@ class _TransitBlockWidgetState extends State<TransitBlockWidget> {
                     color: Theme.of(context).colorScheme.secondary,
                   ),
                   const SizedBox(width: 8),
-                  TransitFooter(transitBlock: widget.transitBlock),
+                  TransitFooter(transitBlock: widget.transitBlock, expense: widget.expense),
                 ],
               ),
             ],
