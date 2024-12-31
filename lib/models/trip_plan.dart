@@ -51,13 +51,11 @@ class TripPlan {
   final String title;
   final int viewCount;
   final Itinerary itinerary;
-  final List<Expense>? expenses;
 
   const TripPlan({
     required this.title,
     this.viewCount = 0,
     required this.itinerary,
-    this.expenses,
   });
   factory TripPlan.fromJson(Map<String, dynamic> json) =>
       _$TripPlanFromJson(json);
@@ -66,9 +64,19 @@ class TripPlan {
 @JsonSerializable()
 class Itinerary {
   final List<Section> sections;
-  const Itinerary({required this.sections});
+  final Budget budget;
+  const Itinerary({required this.sections, required this.budget});
   factory Itinerary.fromJson(Map<String, dynamic> json) =>
       _$ItineraryFromJson(json);
+}
+
+@JsonSerializable()
+class Budget {
+  final List<Expense> expenses;
+
+  Budget({required this.expenses});
+  factory Budget.fromJson(Map<String, dynamic> json) =>
+      _$BudgetFromJson(json);
 }
 
 List<Section> getSections(List<dynamic> json) {
