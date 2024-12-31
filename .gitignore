@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/release
 
 /resources
+
+# Ignore all generated Dart files
+**/*.g.dart
