@@ -7,9 +7,6 @@ on:
 jobs:
   build_android:
     uses: ./.github/workflows/flutter-build.yaml
-    with:
-      java-version: '17'
-      channel: stable
     secrets: inherit
 
   upload_to_play_store:
