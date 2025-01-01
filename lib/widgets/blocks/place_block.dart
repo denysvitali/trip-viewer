@@ -43,12 +43,12 @@ class PlaceBlockWidget extends StatelessWidget {
                 _body(context),
                 if (placeBlock.price != null)
                   Text(
-                    '${placeBlock.price!.amount.value} ${placeBlock.price!.amount.currencyCode}',
+                    '${placeBlock.price!.amount.amount} ${placeBlock.price!.amount.currencyCode}',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 if (expense != null)
                   Text(
-                    '${expense!.amount.value} ${expense!.amount.currencyCode}',
+                    '${expense!.amount.amount} ${expense!.amount.currencyCode}',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
               ],

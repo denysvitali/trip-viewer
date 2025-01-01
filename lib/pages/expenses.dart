@@ -18,7 +18,7 @@ class ExpensesPage extends StatelessWidget {
           final expense = expenses[index];
           return ListTile(
             title: Text(expense.description ?? 'No description'),
-            subtitle: Text('${expense.amount.value} ${expense.amount.currencyCode}'),
+            subtitle: Text('${expense.amount.amount} ${expense.amount.currencyCode}'),
             trailing: Text(expense.category),
           );
         },

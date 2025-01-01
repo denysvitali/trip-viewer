@@ -113,7 +113,7 @@ class FlightFooter extends StatelessWidget {
         ),
         if (expense != null)
           Text(
-            '${expense!.amount.value} ${expense!.amount.currencyCode}',
+            '${expense!.amount.amount} ${expense!.amount.currencyCode}',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
       ],
