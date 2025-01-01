@@ -94,7 +94,7 @@ class _HotelInfo extends StatelessWidget {
           _ConfirmationNumber(number: placeBlock.hotel!.confirmationNumber!),
         if (expense != null)
           Text(
-            '${expense!.amount} ${expense!.currencyCode}',
+            '${expense!.amount.amount} ${expense!.amount.currencyCode}',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
       ],
