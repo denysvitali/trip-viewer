@@ -357,18 +357,16 @@ class Expense {
   final int id;
   @JsonKey(fromJson: _amountFromJson)
   final Amount amount;
-  final String? currencyCode;
   final String category;
   final String? description;
-  final int blockId;
+  final int? blockId;
 
   Expense({
     required this.id,
     required this.amount,
-    required this.currencyCode,
     required this.category,
     required this.description,
-    required this.blockId,
+    this.blockId,
   });
 
   factory Expense.fromJson(Map<String, dynamic> json) =>
