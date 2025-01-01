@@ -356,7 +356,7 @@ class TransitBlock extends Block {
 class Expense {
   final int id;
   final Amount amount;
-  final String currencyCode;
+  final String? currencyCode;
   final String category;
   final String? description;
   final int blockId;
