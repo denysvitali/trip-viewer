@@ -128,7 +128,7 @@ class TransitFooter extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              '${expense!.amount} ${expense!.currencyCode}',
+              '${expense!.amount.value} ${expense!.amount.currencyCode}',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ]),
