@@ -57,6 +57,9 @@ class TripPlan {
     this.viewCount = 0,
     required this.itinerary,
   });
+
+  List<Expense> get expenses => itinerary.budget.expenses;
+
   factory TripPlan.fromJson(Map<String, dynamic> json) =>
       _$TripPlanFromJson(json);
 }
