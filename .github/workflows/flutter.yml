@@ -6,25 +6,38 @@ on:
 
 jobs:
   build_android:
-    uses: ./.github/workflows/flutter-build.yaml
-    secrets: inherit
-
-  upload_to_play_store:
-    needs: build_android
     runs-on: ubuntu-latest
     steps:
-      - name: Decrypt keystore
-        run: |
-          mkdir -p android/app
-          openssl aes-256-cbc -d -in android/upload.jks.enc -out android/app/upload.jks -k ${{ secrets.KEYSTORE_PASSWORD }}
-
-      - name: Build Android App
-        run: flutter build appbundle --release
-
-      - name: Upload to Play Store
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJson: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: it.denv.wanderlog_alt
-          releaseFile: build/app/outputs/bundle/release/app-release.aab
-          track: production
+    - uses: actions/checkout@v3
+    - uses: actions/setup-java@v2
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+    - uses: subosito/flutter-action@v2
+      with:
+        channel: stable
+    # Decrypt keystore
+    - run: |
+        pushd android
+        ./scripts/decrypt-key.sh "upload.jks.enc" "upload.jks"
+        ./scripts/setup-keystore.sh
+      env:
+        DECRYPTION_KEY: ${{ secrets.DECRYPTION_KEY }}
+        STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+    # Set version in pubspec.yaml based on the CI build number
+    - run: |
+        VERSION=$(echo $GITHUB_RUN_NUMBER)
+        sed -i -E "s/version: (.*?)\+(.*?)/version: \\1+$VERSION/g" pubspec.yaml
+    - run: flutter pub get
+    - run: flutter pub run build_runner build --delete-conflicting-outputs
+    - run: flutter gen-l10n
+    - run: flutter build appbundle --release
+    - uses: r0adkll/upload-google-play@v1
+      with:
+        serviceAccountJsonPlainText: ${{ secrets.SERVICE_ACCOUNT_JSON }}
+        packageName: it.denv.wanderlog_alt
+        releaseFiles: build/app/outputs/bundle/release/app-release.aab
+        track: internal
+        status: draft
+      if: github.ref == 'refs/heads/master'
