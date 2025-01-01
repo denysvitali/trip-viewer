@@ -4,10 +4,10 @@ part 'amount.g.dart';
 
 @JsonSerializable()
 class Amount {
-  final double value;
+  final double amount;
   final String currencyCode;
 
-  Amount({required this.value, required this.currencyCode});
+  Amount({required this.amount, required this.currencyCode});
 
   factory Amount.fromJson(Map<String, dynamic> json) => _$AmountFromJson(json);
 
