@@ -355,6 +355,7 @@ class TransitBlock extends Block {
 @JsonSerializable()
 class Expense {
   final int id;
+  @JsonKey(fromJson: _amountFromJson)
   final Amount amount;
   final String? currencyCode;
   final String category;
@@ -372,4 +373,11 @@ class Expense {
 
   factory Expense.fromJson(Map<String, dynamic> json) =>
       _$ExpenseFromJson(json);
+
+  static Amount _amountFromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return Amount(amount: 0.0);
+    }
+    return Amount.fromJson(json);
+  }
 }
