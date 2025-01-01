@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'amount.dart';
 
 part 'trip_plan.g.dart';
 
@@ -354,7 +355,7 @@ class TransitBlock extends Block {
 @JsonSerializable()
 class Expense {
   final int id;
-  final int amount;
+  final Amount amount;
   final String currencyCode;
   final String category;
   final String? description;
