@@ -29,3 +29,4 @@ jobs:
     - run: flutter pub run build_runner build --delete-conflicting-outputs
     - run: flutter gen-l10n
     - run: flutter build appbundle --release
+    - run: flutter test test/trip_id_test.dart
