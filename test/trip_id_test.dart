@@ -20,4 +20,19 @@ void main() {
     expect(tripPlanResponse.tripPlan, isA<TripPlan>());
     expect(tripPlanResponse.resources, isA<Resources>());
   });
+
+  test('Expense.fromJson handles null amount', () {
+    final json = {
+      'id': 1,
+      'amount': null,
+      'currencyCode': 'USD',
+      'category': 'Food',
+      'description': 'Lunch',
+      'blockId': 1,
+    };
+
+    final expense = Expense.fromJson(json);
+
+    expect(expense.amount.amount, 0.0);
+  });
 }
