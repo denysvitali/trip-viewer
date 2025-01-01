@@ -111,6 +111,21 @@ class FlightFooter extends StatelessWidget {
           '${flightBlock.flightInfo.airline.name} ${flightBlock.flightInfo.number}',
           style: Theme.of(context).textTheme.titleSmall,
         ),
+        if (flightBlock.confirmationNumber != null)
+          Row(
+            children: [
+              Icon(
+                Icons.confirmation_number,
+                color: Theme.of(context).colorScheme.secondary,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                flightBlock.confirmationNumber!,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          ),
         if (expense != null)
           Text(
             '${expense!.amount} ${expense!.currencyCode}',
