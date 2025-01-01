@@ -12,7 +12,7 @@ import 'package:wanderlog_alt/widgets/blocks/note_block.dart';
 import 'package:wanderlog_alt/widgets/blocks/place_block.dart';
 import 'package:wanderlog_alt/widgets/blocks/transit_block.dart';
 import 'package:wanderlog_alt/services/trip_cache_service.dart';
-import 'package:wanderlog_alt/pages/expenses.dart'; // P3189
+import 'package:wanderlog_alt/pages/expenses.dart';
 
 class TripPage extends StatefulWidget {
   final String? tripId;
@@ -31,7 +31,7 @@ class TripPageState extends State<TripPage> {
   Map<DateTime, List<FlightBlock>> flightsByDate = {};
   Map<DateTime, List<PlaceBlock>> hotelsByDate = {};
   Map<DateTime, List<TransitBlock>> transitByDate = {};
-  Map<int, Expense> expensesById = {}; // P0bbf
+  Map<int, Expense> expensesById = {};
   bool _isLoading = true;
   final ScrollController _scrollController = ScrollController();
   Map<DateTime, GlobalKey> _dateKeys = {};
@@ -121,7 +121,7 @@ class TripPageState extends State<TripPage> {
       flightsByDate = getFlightsByDate(fetchedPlan);
       hotelsByDate = getHotelsByDate(fetchedPlan);
       transitByDate = getTransitByDate(fetchedPlan);
-      expensesById = getExpensesById(fetchedPlan); // P0bbf
+      expensesById = getExpensesById(fetchedPlan);
       plan = fetchedPlan;
       _dateKeys = dateKeys;
       _isLoading = false;
@@ -320,7 +320,7 @@ class TripPageState extends State<TripPage> {
             hotels: hotelsByDate[date] ?? [],
             transit: transitByDate[date] ?? [],
             placeMetadata: pm,
-            expensesById: expensesById, // Pe0a4
+            expensesById: expensesById,
             onRefresh: loadTripData,
           );
         },
@@ -399,10 +399,8 @@ class TripPageState extends State<TripPage> {
 
   Map<int, Expense> getExpensesById(TripPlanResponse fetchedPlan) {
     Map<int, Expense> expensesById = {};
-    if (fetchedPlan.tripPlan.expenses != null) {
-      for (Expense expense in fetchedPlan.tripPlan.expenses!) {
-        expensesById[expense.id] = expense;
-      }
+    for (Expense expense in fetchedPlan.tripPlan.expenses) {
+      expensesById[expense.id] = expense;
     }
     return expensesById;
   }
@@ -536,7 +534,7 @@ class DayView extends StatefulWidget {
   final List<PlaceBlock> hotels;
   final List<TransitBlock> transit;
   final Map<String, PlaceMetadata> placeMetadata;
-  final Map<int, Expense> expensesById; // Pe0a4
+  final Map<int, Expense> expensesById;
   final Future<void> Function()? onRefresh;
 
   const DayView({
@@ -547,7 +545,7 @@ class DayView extends StatefulWidget {
     required this.hotels,
     required this.transit,
     required this.placeMetadata,
-    required this.expensesById, // Pe0a4
+    required this.expensesById,
     this.onRefresh,
   });
 
@@ -584,7 +582,7 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
                 (f) => FlightBlockWidget(
                   flightBlock: f,
                   initiallyExpanded: false,
-                  expense: widget.expensesById[f.expenseId], // P4aa5
+                  expense: widget.expensesById[f.expenseId],
                 ),
               ),
             ],
@@ -595,7 +593,7 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
                   placeBlock: h,
                   metadata: widget.placeMetadata[h.place.placeId],
                   initiallyExpanded: false,
-                  expense: widget.expensesById[h.expenseId], // P4aa5
+                  expense: widget.expensesById[h.expenseId],
                 ),
               ),
             ],
@@ -606,7 +604,7 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
                   transitBlock: t,
                   transitType: getTransitType(t.type),
                   initiallyExpanded: false,
-                  expense: widget.expensesById[t.expenseId], // P4aa5
+                  expense: widget.expensesById[t.expenseId],
                 ),
               ),
             ],
@@ -616,7 +614,7 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
                 return PlaceBlockWidget(
                   placeBlock: b,
                   metadata: widget.placeMetadata[b.place.placeId],
-                  expense: widget.expensesById[b.expenseId], // P4aa5
+                  expense: widget.expensesById[b.expenseId],
                 );
               }
               if (b is NoteBlock) {
