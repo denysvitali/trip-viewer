@@ -154,11 +154,14 @@ class PlaceBlock extends Block {
   final Hotel? hotel;
   final String? startTime;
   final String? endTime;
+  final String? description; // Pae42
+
   PlaceBlock({
     required this.place,
     required this.hotel,
     required this.startTime,
     required this.endTime,
+    required this.description, // Pae42
     super.imageKeys,
     super.price,
     super.expenseId,

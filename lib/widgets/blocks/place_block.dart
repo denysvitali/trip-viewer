@@ -51,6 +51,11 @@ class PlaceBlockWidget extends StatelessWidget {
                     '${expense!.amount.amount} ${expense!.amount.currencyCode}',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
+                if (placeBlock.description != null)
+                  Text(
+                    placeBlock.description!,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
               ],
             ),
           ),
