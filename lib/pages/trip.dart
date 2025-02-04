@@ -165,7 +165,11 @@ class TripPageState extends State<TripPage> {
   }
 
   void unableToLoadTripData(e) {
-    log('Failed to load trip data: $e', stackTrace: e.stackTrace);
+    if (e is Error) {
+      log('Failed to load trip data: $e', stackTrace: e.stackTrace);
+    } else {
+      log('Failed to load trip data: $e');
+    }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
