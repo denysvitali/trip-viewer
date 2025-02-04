@@ -93,12 +93,7 @@ class TripPageState extends State<TripPage> {
       // Load fresh data
       await loadTripData();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load trip data: ${e.toString()}')),
-        );
-      }
-      setState(() => _isLoading = false);
+      unableToLoadTripData(e);
     }
   }
 
@@ -153,7 +148,7 @@ class TripPageState extends State<TripPage> {
       log("Loading trip data for $tripId");
       Uri url = Uri.parse('$apiUrl/$tripId?clientSchemaVersion=2');
       if (!isProduction) {
-        url = Uri.parse("http://127.0.0.1:5005/thailand2.json");
+        url = Uri.parse("http://127.0.0.1:5005/rome.json");
       }
 
       final response = await http.get(url);
@@ -165,12 +160,18 @@ class TripPageState extends State<TripPage> {
       // Update state with trip data
       _updateTripData(tripData);
     } catch (e) {
-      log('Error loading trip data: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load trip data: ${e.toString()}')),
-        );
-      }
+      unableToLoadTripData(e);
+    }
+  }
+
+  void unableToLoadTripData(e) {
+    log('Failed to load trip data: $e', stackTrace: e.stackTrace);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to load trip data: $e'),
+        ),
+      );
       setState(() => _isLoading = false);
     }
   }
@@ -243,12 +244,17 @@ class TripPageState extends State<TripPage> {
   }
 
   List<DateTime> _getSortedDates() {
-    if (plan == null) return [];
-    return plan!.tripPlan.itinerary.sections
-        .where((s) => s.date != null)
-        .map((s) => DateTime.parse(s.date!))
-        .toList()
-      ..sort();
+    Set<DateTime> dateSet = {};
+    if (plan != null) {
+      dateSet.addAll(plan!.tripPlan.itinerary.sections
+          .where((s) => s.date != null)
+          .map((s) => DateTime.parse(s.date!)));
+    }
+    dateSet.addAll(flightsByDate.keys);
+    dateSet.addAll(hotelsByDate.keys);
+    dateSet.addAll(transitByDate.keys);
+    List<DateTime> sortedDates = dateSet.toList()..sort();
+    return sortedDates;
   }
 
   @override
@@ -286,7 +292,8 @@ class TripPageState extends State<TripPage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ExpensesPage(expenses: plan!.tripPlan.expenses ?? []),
+                  builder: (context) =>
+                      ExpensesPage(expenses: plan!.tripPlan.expenses ?? []),
                 ),
               );
             },
@@ -555,11 +562,6 @@ class DayView extends StatefulWidget {
 
 class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   bool get wantKeepAlive => true;
 
   @override
@@ -608,7 +610,8 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
                 ),
               ),
             ],
-            _buildSectionTitle(context, 'Activities'),
+            if (widget.section.blocks.isNotEmpty)
+              _buildSectionTitle(context, 'Activities'),
             ...widget.section.blocks.map((b) {
               if (b is PlaceBlock) {
                 return PlaceBlockWidget(

@@ -5,8 +5,9 @@ import 'package:wanderlog_alt/models/trip_plan.dart';
 
 void main() {
   test('Fetch and process trip id "vevtulccsc"', () async {
-    final tripId = 'vevtulccsc';
-    final url = Uri.parse('https://wanderlog.com/api/tripPlans/$tripId?clientSchemaVersion=2');
+    const tripId = 'vevtulccsc';
+    final url = Uri.parse(
+        'https://wanderlog.com/api/tripPlans/$tripId?clientSchemaVersion=2');
 
     final response = await http.get(url);
 

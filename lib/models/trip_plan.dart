@@ -79,8 +79,7 @@ class Budget {
   final List<Expense> expenses;
 
   Budget({required this.expenses});
-  factory Budget.fromJson(Map<String, dynamic> json) =>
-      _$BudgetFromJson(json);
+  factory Budget.fromJson(Map<String, dynamic> json) => _$BudgetFromJson(json);
 }
 
 List<Section> getSections(List<dynamic> json) {
@@ -122,7 +121,11 @@ class Block {
   final Expense? price;
   final int? expenseId;
 
-  Block({required this.type, this.imageKeys = const [], this.price, this.expenseId});
+  Block(
+      {required this.type,
+      this.imageKeys = const [],
+      this.price,
+      this.expenseId});
 
   factory Block.fromJson(Map<String, dynamic> json) {
     switch (json['type']) {
@@ -137,7 +140,11 @@ class Block {
       case 'ferry':
         return TransitBlock.fromJson(json);
     }
-    return Block(type: json['type'], imageKeys: json['image_keys'] ?? [], price: json['price'] != null ? Expense.fromJson(json['price']) : null, expenseId: json['expenseId']);
+    return Block(
+        type: json['type'],
+        imageKeys: json['image_keys'] ?? [],
+        price: json['price'] != null ? Expense.fromJson(json['price']) : null,
+        expenseId: json['expenseId']);
   }
 }
 
@@ -181,17 +188,18 @@ class TextContainer {
 @JsonSerializable()
 class NoteBlock extends Block {
   final TextContainer text;
-  NoteBlock({required this.text, super.imageKeys, super.price, super.expenseId}) : super(type: 'note');
+  NoteBlock({required this.text, super.imageKeys, super.price, super.expenseId})
+      : super(type: 'note');
   factory NoteBlock.fromJson(Map<String, dynamic> json) =>
       _$NoteBlockFromJson(json);
 }
 
 @JsonSerializable()
 class Airline {
-  final String iata;
-  final String icao;
-  final String name;
-  final String localizedName;
+  final String? iata;
+  final String? icao;
+  final String? name;
+  final String? localizedName;
 
   Airline({
     required this.iata,
