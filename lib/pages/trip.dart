@@ -49,6 +49,22 @@ class TripPageState extends State<TripPage> {
     });
   }
 
+  int _findMostRelevantDayIndex(List<DateTime> dates) {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+
+    for (int i = 0; i < dates.length; i++) {
+      final compareDate = DateTime(dates[i].year, dates[i].month, dates[i].day);
+      if (compareDate.isAtSameMomentAs(todayDate)) {
+        return i; // Current day
+      } else if (compareDate.isAfter(todayDate)) {
+        return i; // First future day
+      }
+    }
+
+    return dates.length - 1; // Last day if all are in the past
+  }
+
   @override
   void initState() {
     super.initState();
@@ -108,9 +124,9 @@ class TripPageState extends State<TripPage> {
         .toList()
       ..sort();
 
-    // Find today's index
-    final todayIndex = _findTodayIndex(dates);
-    final initialPage = todayIndex >= 0 ? todayIndex : 0;
+    // Find the most relevant day index
+    final mostRelevantDayIndex = _findMostRelevantDayIndex(dates);
+    final initialPage = mostRelevantDayIndex >= 0 ? mostRelevantDayIndex : 0;
 
     setState(() {
       flightsByDate = getFlightsByDate(fetchedPlan);
