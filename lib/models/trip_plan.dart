@@ -474,8 +474,8 @@ class Expense {
   factory Expense.fromJson(Map<String, dynamic> json) =>
       _$ExpenseFromJson(json);
 
-  static Amount _amountFromJson(Map<String, dynamic>? json) {
-    if (json == null) {
+  static Amount _amountFromJson(dynamic json) {
+    if (json == null || !(json is Map<String, dynamic>)) {
       return Amount(amount: 0.0, currencyCode: 'USD');
     }
     return Amount.fromJson(json);

@@ -29,11 +29,19 @@ void main() {
       'category': 'Food',
       'description': 'Lunch',
       'blockId': null,
+      // Add required fields that were missing
+      'paidByUserId': 0,
+      'paidByUser': {'type': 'user', 'id': 0},
+      'splitWith': {
+        'type': 'even',
+        'users': [0]
+      }
     };
 
     final expense = Expense.fromJson(json);
 
     expect(expense.amount.amount, 0.0);
     expect(expense.blockId, null);
+    expect(expense.paidByUserId, 0);
   });
 }
