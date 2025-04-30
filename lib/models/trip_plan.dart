@@ -174,7 +174,8 @@ class PlaceBlock extends Block {
 @JsonSerializable()
 class TextOps {
   final String insert;
-  final String? attributes;
+  final dynamic
+      attributes; // Changed from String? to dynamic to handle both String and Map types
   TextOps({required this.insert, this.attributes});
   factory TextOps.fromJson(Map<String, dynamic> json) =>
       _$TextOpsFromJson(json);
