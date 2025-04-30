@@ -12,6 +12,9 @@ import 'package:wanderlog_alt/widgets/blocks/place_block.dart';
 import 'package:wanderlog_alt/widgets/blocks/transit_block.dart';
 import 'package:wanderlog_alt/services/trip_cache_service.dart';
 import 'package:wanderlog_alt/pages/expenses.dart';
+import 'package:wanderlog_alt/pages/budget.dart'; // Import the new BudgetPage
+import 'package:wanderlog_alt/pages/map_view.dart'; // Import the MapView
+import 'package:wanderlog_alt/pages/packing_list.dart'; // Import the PackingListPage
 import 'package:wanderlog_alt/widgets/text_container_widget.dart';
 
 class TripPage extends StatefulWidget {
@@ -38,16 +41,6 @@ class TripPageState extends State<TripPage> {
   final Map<DateTime, double> _sectionOffsets = {};
   final PageController _pageController = PageController();
   int _currentPage = 0;
-
-  int _findTodayIndex(List<DateTime> dates) {
-    final today = DateTime.now();
-    final todayDate = DateTime(today.year, today.month, today.day);
-
-    return dates.indexWhere((date) {
-      final compareDate = DateTime(date.year, date.month, date.day);
-      return compareDate.isAtSameMomentAs(todayDate);
-    });
-  }
 
   int _findMostRelevantDayIndex(List<DateTime> dates) {
     final today = DateTime.now();
@@ -306,14 +299,59 @@ class TripPageState extends State<TripPage> {
           ),
         ),
         actions: [
+          // Map view button
+          IconButton(
+            icon: const Icon(Icons.map),
+            tooltip: 'Map View',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MapView(tripPlan: plan!.tripPlan),
+                ),
+              );
+            },
+          ),
+          // Packing list button
+          IconButton(
+            icon: const Icon(Icons.checklist),
+            tooltip: 'Packing List',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PackingListPage(
+                    tripPlan: plan!.tripPlan,
+                  ),
+                ),
+              );
+            },
+          ),
+          // Budget dashboard button
+          IconButton(
+            icon: const Icon(Icons.account_balance_wallet),
+            tooltip: 'Budget Dashboard',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BudgetPage(
+                    budget: plan!.tripPlan.itinerary.budget,
+                  ),
+                ),
+              );
+            },
+          ),
+          // Existing expenses button
           IconButton(
             icon: const Icon(Icons.receipt_long),
+            tooltip: 'Expenses List',
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) =>
-                      ExpensesPage(expenses: plan!.tripPlan.expenses ?? []),
+                      ExpensesPage(expenses: plan!.tripPlan.expenses),
                 ),
               );
             },

@@ -298,6 +298,7 @@ class GooglePlace {
   final String name;
   final List<Photo>? photos;
   final String? url;
+  final Geometry? geometry;
 
   GooglePlace({
     required this.formattedAddress,
@@ -305,10 +306,32 @@ class GooglePlace {
     required this.photos,
     required this.url,
     required this.placeId,
+    this.geometry,
   });
 
   factory GooglePlace.fromJson(Map<String, dynamic> json) =>
       _$GooglePlaceFromJson(json);
+}
+
+@JsonSerializable()
+class Geometry {
+  final Location location;
+
+  Geometry({required this.location});
+
+  factory Geometry.fromJson(Map<String, dynamic> json) =>
+      _$GeometryFromJson(json);
+}
+
+@JsonSerializable()
+class Location {
+  final double lat;
+  final double lng;
+
+  Location({required this.lat, required this.lng});
+
+  factory Location.fromJson(Map<String, dynamic> json) =>
+      _$LocationFromJson(json);
 }
 
 @JsonSerializable()

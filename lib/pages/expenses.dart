@@ -4,8 +4,13 @@ import 'package:wanderlog_alt/models/trip_plan.dart';
 
 class ExpensesPage extends StatelessWidget {
   final List<Expense> expenses;
+  final String title;
 
-  const ExpensesPage({super.key, required this.expenses});
+  const ExpensesPage({
+    super.key,
+    required this.expenses,
+    this.title = 'Expenses',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -15,29 +20,44 @@ class ExpensesPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Expenses'),
+        title: Text(title),
       ),
-      body: ListView.builder(
-        itemCount: sortedExpenses.length,
-        itemBuilder: (context, index) {
-          final expense = sortedExpenses[index];
-          // Format the date
-          final formattedDate =
-              DateFormat('MMM d, yyyy').format(DateTime.parse(expense.date));
-          final subtitleText =
-              '${expense.amount.format()} - Paid by user ${expense.paidByUserId} on $formattedDate';
+      body: sortedExpenses.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.receipt_long, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No expenses found',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              itemCount: sortedExpenses.length,
+              itemBuilder: (context, index) {
+                final expense = sortedExpenses[index];
+                // Format the date
+                final formattedDate = DateFormat('MMM d, yyyy')
+                    .format(DateTime.parse(expense.date));
+                final subtitleText =
+                    '${expense.amount.format()} - Paid by user ${expense.paidByUserId} on $formattedDate';
 
-          return ListTile(
-            leading: CircleAvatar(
-              // Add category icon (example)
-              child: Icon(_getCategoryIcon(expense.category)),
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor:
+                        Theme.of(context).colorScheme.primaryContainer,
+                    child: Icon(_getCategoryIcon(expense.category)),
+                  ),
+                  title: Text(expense.description ?? 'No description'),
+                  subtitle: Text(subtitleText),
+                  trailing: Text(expense.category),
+                );
+              },
             ),
-            title: Text(expense.description ?? 'No description'),
-            subtitle: Text(subtitleText),
-            trailing: Text(expense.category),
-          );
-        },
-      ),
     );
   }
 
