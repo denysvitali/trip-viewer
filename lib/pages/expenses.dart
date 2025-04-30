@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart'; // Import intl package
 import 'package:wanderlog_alt/models/trip_plan.dart';
 
 class ExpensesPage extends StatelessWidget {
@@ -8,21 +9,53 @@ class ExpensesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Sort expenses by date (newest first)
+    final sortedExpenses = List<Expense>.from(expenses)
+      ..sort((a, b) => b.date.compareTo(a.date));
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Expenses'),
       ),
       body: ListView.builder(
-        itemCount: expenses.length,
+        itemCount: sortedExpenses.length,
         itemBuilder: (context, index) {
-          final expense = expenses[index];
+          final expense = sortedExpenses[index];
+          // Format the date
+          final formattedDate =
+              DateFormat('MMM d, yyyy').format(DateTime.parse(expense.date));
+          final subtitleText =
+              '${expense.amount.format()} - Paid by user ${expense.paidByUserId} on $formattedDate';
+
           return ListTile(
+            leading: CircleAvatar(
+              // Add category icon (example)
+              child: Icon(_getCategoryIcon(expense.category)),
+            ),
             title: Text(expense.description ?? 'No description'),
-            subtitle: Text('${expense.amount.amount} ${expense.amount.currencyCode ?? ''}'),
+            subtitle: Text(subtitleText),
             trailing: Text(expense.category),
           );
         },
       ),
     );
+  }
+
+  // Helper function to get an icon based on category
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'flights':
+        return Icons.flight;
+      case 'lodging':
+        return Icons.hotel;
+      case 'food':
+        return Icons.restaurant;
+      case 'activities':
+        return Icons.local_activity;
+      case 'transport':
+        return Icons.directions_transit;
+      default:
+        return Icons.receipt_long; // Default icon
+    }
   }
 }

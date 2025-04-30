@@ -69,17 +69,69 @@ class TripPlan {
 class Itinerary {
   final List<Section> sections;
   final Budget budget;
-  const Itinerary({required this.sections, required this.budget});
+  final Map<String, dynamic> options;
+
+  const Itinerary({
+    required this.sections,
+    required this.budget,
+    required this.options,
+  });
   factory Itinerary.fromJson(Map<String, dynamic> json) =>
       _$ItineraryFromJson(json);
 }
 
 @JsonSerializable()
-class Budget {
-  final List<Expense> expenses;
+class PaidByUser {
+  final String type;
+  final int id;
 
-  Budget({required this.expenses});
+  PaidByUser({required this.type, required this.id});
+
+  factory PaidByUser.fromJson(Map<String, dynamic> json) =>
+      _$PaidByUserFromJson(json);
+}
+
+@JsonSerializable()
+class SplitWith {
+  final String type;
+  final List<int> users;
+
+  SplitWith({required this.type, required this.users});
+
+  factory SplitWith.fromJson(Map<String, dynamic> json) =>
+      _$SplitWithFromJson(json);
+}
+
+@JsonSerializable()
+class Payment {
+  Payment();
+
+  factory Payment.fromJson(Map<String, dynamic> json) =>
+      _$PaymentFromJson(json);
+}
+
+@JsonSerializable()
+class Budget {
+  @JsonKey(fromJson: _amountFromJson)
+  final Amount amount;
+  final List<Expense> expenses;
+  final List<Payment> payments;
+  final bool simplifyDebt;
+
+  Budget({
+    required this.amount,
+    required this.expenses,
+    required this.payments,
+    required this.simplifyDebt,
+  });
   factory Budget.fromJson(Map<String, dynamic> json) => _$BudgetFromJson(json);
+
+  static Amount _amountFromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return Amount(amount: 0.0, currencyCode: 'USD');
+    }
+    return Amount.fromJson(json);
+  }
 }
 
 List<Section> getSections(List<dynamic> json) {
@@ -91,9 +143,14 @@ class Section {
   final String heading;
   final List<Block> blocks;
   final String? date;
+  final TextContainer? text;
 
-  const Section(
-      {required this.heading, required this.date, required this.blocks});
+  const Section({
+    required this.heading,
+    required this.date,
+    required this.blocks,
+    this.text,
+  });
   factory Section.fromJson(Map<String, dynamic> json) =>
       _$SectionFromJson(json);
 }
@@ -154,14 +211,14 @@ class PlaceBlock extends Block {
   final Hotel? hotel;
   final String? startTime;
   final String? endTime;
-  final String? description; // Pae42
+  final String? description;
 
   PlaceBlock({
     required this.place,
     required this.hotel,
     required this.startTime,
     required this.endTime,
-    required this.description, // Pae42
+    required this.description,
     super.imageKeys,
     super.price,
     super.expenseId,
@@ -174,8 +231,8 @@ class PlaceBlock extends Block {
 @JsonSerializable()
 class TextOps {
   final String insert;
-  final dynamic
-      attributes; // Changed from String? to dynamic to handle both String and Map types
+  final dynamic attributes;
+
   TextOps({required this.insert, this.attributes});
   factory TextOps.fromJson(Map<String, dynamic> json) =>
       _$TextOpsFromJson(json);
@@ -371,14 +428,24 @@ class Expense {
   final Amount amount;
   final String category;
   final String? description;
+  final String date;
   final int? blockId;
+  final int paidByUserId;
+  final PaidByUser paidByUser;
+  final SplitWith splitWith;
+  final String associatedDate;
 
   Expense({
     required this.id,
     required this.amount,
     required this.category,
     required this.description,
+    required this.date,
     this.blockId,
+    required this.paidByUserId,
+    required this.paidByUser,
+    required this.splitWith,
+    required this.associatedDate,
   });
 
   factory Expense.fromJson(Map<String, dynamic> json) =>
@@ -386,7 +453,7 @@ class Expense {
 
   static Amount _amountFromJson(Map<String, dynamic>? json) {
     if (json == null) {
-      return Amount(amount: 0.0);
+      return Amount(amount: 0.0, currencyCode: 'USD');
     }
     return Amount.fromJson(json);
   }

@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import 'package:json_annotation/json_annotation.dart';
 
 part 'amount.g.dart';
@@ -12,4 +13,21 @@ class Amount {
   factory Amount.fromJson(Map<String, dynamic> json) => _$AmountFromJson(json);
 
   Map<String, dynamic> toJson() => _$AmountToJson(this);
+
+  // Format the amount with currency symbol/code
+  String format() {
+    try {
+      final format = NumberFormat.currency(
+        locale:
+            'en_US', // Use a locale that supports the currency or handle mapping
+        symbol: currencyCode ?? '', // Use currency code as symbol if available
+        decimalDigits: 2,
+      );
+      // Handle potential negative amounts if necessary
+      return format.format(amount);
+    } catch (e) {
+      // Fallback for unknown currency codes or formatting errors
+      return '${amount.toStringAsFixed(2)} ${currencyCode ?? ''}'.trim();
+    }
+  }
 }

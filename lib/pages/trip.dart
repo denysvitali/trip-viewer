@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:collection';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -13,6 +12,7 @@ import 'package:wanderlog_alt/widgets/blocks/place_block.dart';
 import 'package:wanderlog_alt/widgets/blocks/transit_block.dart';
 import 'package:wanderlog_alt/services/trip_cache_service.dart';
 import 'package:wanderlog_alt/pages/expenses.dart';
+import 'package:wanderlog_alt/widgets/text_container_widget.dart';
 
 class TripPage extends StatefulWidget {
   final String? tripId;
@@ -23,7 +23,7 @@ class TripPage extends StatefulWidget {
 }
 
 const apiUrl = "https://wanderlog.com/api/tripPlans/";
-const bool isProduction = bool.fromEnvironment('dart.vm.product');
+const bool isProduction = true;
 
 class TripPageState extends State<TripPage> {
   TripPlanResponse? plan;
@@ -598,6 +598,9 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
           padding: const EdgeInsets.all(16),
           children: [
             _buildHeader(context),
+            // Display Section Text if available
+            if (widget.section.text != null)
+              TextContainerWidget(textContainer: widget.section.text!),
             if (widget.flights.isNotEmpty) ...[
               _buildSectionTitle(context, 'Flights'),
               ...widget.flights.map(
@@ -651,7 +654,6 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
     );
   }
 
-  // ... rest of the DayView methods remain the same ...
   Widget _buildHeader(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -669,9 +671,12 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           if (widget.section.heading.isNotEmpty)
-            Text(
-              widget.section.heading,
-              style: Theme.of(context).textTheme.bodyLarge,
+            Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Text(
+                widget.section.heading,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
             ),
         ],
       ),
