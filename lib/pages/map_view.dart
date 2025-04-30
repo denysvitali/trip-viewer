@@ -1,7 +1,8 @@
 import 'dart:developer';
+import 'dart:typed_data'; // Import for Uint8List
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart'; // Import for rootBundle
 import 'package:geolocator/geolocator.dart' hide Position;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -49,15 +50,34 @@ class _MapViewState extends State<MapView> {
       {}; // Added for placeId -> annotation mapping
   final List<Point> _placePoints = [];
   bool _isDrawingRoute = false;
+  Uint8List? _pinImageBytes; // Added state for pin image bytes
 
   Point _centerPoint = Point(coordinates: Position(12.4964, 41.9028));
 
   @override
   void initState() {
     super.initState();
+    _loadPinImage(); // Load the pin image
     _allPlaces = _extractAllPlaces();
     _checkLocationPermission();
     _fetchPlaceCoordinatesAndCalculateCenter();
+  }
+
+  // Method to load the pin image asset
+  Future<void> _loadPinImage() async {
+    try {
+      final ByteData byteData =
+          await rootBundle.load('assets/images/map_pin.png');
+      _pinImageBytes = byteData.buffer.asUint8List();
+      log("Pin image loaded successfully.");
+      // If map is already initialized and coordinates loaded when image loads, refresh markers
+      if (_mapInitialized && _coordinatesLoaded) {
+        _addPlaceMarkers();
+      }
+    } catch (e) {
+      log("Error loading pin image: $e");
+      _showErrorSnackbar("Could not load map pin image.");
+    }
   }
 
   Future<void> _checkLocationPermission() async {
@@ -167,8 +187,9 @@ class _MapViewState extends State<MapView> {
       setState(() {
         _coordinatesLoaded = true;
       });
-      if (_mapInitialized) {
-        log("Coordinates loaded, map already initialized. Adding markers and flying to center.");
+      // Check if pin image is also loaded before adding markers
+      if (_mapInitialized && _pinImageBytes != null) {
+        log("Coordinates loaded, map initialized, pin image loaded. Adding markers and flying to center.");
         _addPlaceMarkers();
         if (_mapboxMap != null && _placePoints.isNotEmpty) {
           _mapboxMap!.flyTo(
@@ -177,26 +198,29 @@ class _MapViewState extends State<MapView> {
           );
         }
       } else {
-        log("Coordinates loaded, map not yet initialized.");
+        log("Coordinates loaded, but map or pin image not ready yet.");
       }
     }
   }
 
   Future<void> _addPlaceMarkers() async {
+    // Add check for pin image bytes
     if (!_mapInitialized ||
         !_coordinatesLoaded ||
         _mapboxMap == null ||
-        _placesWithCoordinates.isEmpty) {
-      log('Skipping addPlaceMarkers: Map Initialized: $_mapInitialized, Coords Loaded: $_coordinatesLoaded, Map Ready: ${_mapboxMap != null}, Places > 0: ${_placesWithCoordinates.isNotEmpty}');
+        _placesWithCoordinates.isEmpty ||
+        _pinImageBytes == null) {
+      // Check if image is loaded
+      log('Skipping addPlaceMarkers: Map Initialized: $_mapInitialized, Coords Loaded: $_coordinatesLoaded, Map Ready: ${_mapboxMap != null}, Places > 0: ${_placesWithCoordinates.isNotEmpty}, Pin Image Loaded: ${_pinImageBytes != null}');
       return;
     }
 
-    log('Adding ${_placePoints.length} place markers.');
+    log('Adding ${_placePoints.length} place markers using image.');
 
     try {
       await _pointAnnotationManager?.deleteAll();
       _annotationIdToPlaceId.clear();
-      _placeIdToAnnotation.clear(); // Clear the new map too
+      _placeIdToAnnotation.clear();
 
       _pointAnnotationManager ??=
           await _mapboxMap!.annotations.createPointAnnotationManager();
@@ -205,7 +229,7 @@ class _MapViewState extends State<MapView> {
         OnPointAnnotationClickListenerImpl(
           onPointAnnotationClick: (annotation) {
             _handlePointAnnotationClick(annotation);
-            return true; // Return true to indicate the event was handled
+            return true;
           },
         ),
       );
@@ -216,11 +240,10 @@ class _MapViewState extends State<MapView> {
           final point = _placePoints[i];
           optionsList.add(PointAnnotationOptions(
             geometry: point,
-            textField: '${i + 1}',
-            textSize: 12.0,
-            textColor: Colors.white.value,
-            iconColor: Colors.blue.value,
-            iconSize: 1.2,
+            image: _pinImageBytes, // Use the loaded image bytes
+            iconSize: 1.0, // Adjust default size as needed
+            // Removed textField, textSize, textColor
+            // iconColor might be used for tinting, keep for selection logic for now
           ));
         } else {
           log('Warning: Mismatch between placesWithCoordinates (${_placesWithCoordinates.length}) and _placePoints (${_placePoints.length}) at index $i');
@@ -233,15 +256,15 @@ class _MapViewState extends State<MapView> {
       if (annotations != null) {
         for (int i = 0; i < annotations.length; i++) {
           if (i < _placesWithCoordinates.length) {
-            final annotation = annotations[i]; // Get the created annotation
+            final annotation = annotations[i];
             if (annotation == null) {
               log('Warning: Annotation at index $i is null.');
               continue;
             }
             final annotationId = annotation.id;
-            final placeId = _placesWithCoordinates[i].placeId; // Get placeId
+            final placeId = _placesWithCoordinates[i].placeId;
             _annotationIdToPlaceId[annotationId] = placeId;
-            _placeIdToAnnotation[placeId] = annotation; // Populate the new map
+            _placeIdToAnnotation[placeId] = annotation;
           }
         }
       }
@@ -354,36 +377,43 @@ class _MapViewState extends State<MapView> {
   // Helper method to update annotation visuals and state
   Future<void> _updateSelectedAnnotation(
       PointAnnotation? newAnnotation, GooglePlace? newPlace) async {
-    if (_pointAnnotationManager == null) return;
+    if (_pointAnnotationManager == null || _pinImageBytes == null) return;
 
     // Reset previous selection
     if (_selectedAnnotation != null && _selectedAnnotation != newAnnotation) {
       try {
-        _selectedAnnotation!.iconColor = Colors.blue.value; // Default color
-        _selectedAnnotation!.iconSize = 1.2; // Default size
+        // Reset tint and size. Keep the image.
+        _selectedAnnotation!.iconImage =
+            null; // Workaround: Seems needed sometimes before updating color/size
+        _selectedAnnotation!.image = _pinImageBytes;
+        _selectedAnnotation!.iconColor =
+            null; // Reset tint (or use default color if needed)
+        _selectedAnnotation!.iconSize = 1.0; // Default size
         await _pointAnnotationManager!.update(_selectedAnnotation!);
       } catch (e) {
         log("Error resetting previous annotation: $e");
-        // Might happen if the annotation was deleted or manager is gone
       }
     }
 
     // Set new selection
     if (newAnnotation != null) {
       try {
-        newAnnotation.iconColor = Colors.red.value; // Selected color
-        newAnnotation.iconSize = 1.5; // Make it slightly larger
+        // Apply tint and size. Keep the image.
+        newAnnotation.iconImage = null; // Workaround
+        newAnnotation.image = _pinImageBytes;
+        newAnnotation.iconColor = Colors.red.value; // Selected tint color
+        newAnnotation.iconSize = 1.5; // Make it larger
         await _pointAnnotationManager!.update(newAnnotation);
       } catch (e) {
         log("Error updating selected annotation: $e");
       }
     }
 
-    // Update state only if selection actually changed
+    // Update state
     if (_selectedPlace != newPlace || _selectedAnnotation != newAnnotation) {
       setState(() {
         _selectedAnnotation = newAnnotation;
-        _selectedPlace = newPlace; // Keep track of the logical selection too
+        _selectedPlace = newPlace;
       });
     }
   }
@@ -442,7 +472,8 @@ class _MapViewState extends State<MapView> {
         children: [
           MapWidget(
             key: const ValueKey("mapWidget"),
-            styleUri: MapboxStyles.MAPBOX_STREETS, // Added default style URI
+            styleUri:
+                MapboxStyles.STANDARD_EXPERIMENTAL, // Added default style URI
             onMapCreated: _onMapCreated,
             onStyleLoadedListener: _onStyleLoaded,
             onMapIdleListener: _onMapIdle,
@@ -611,36 +642,43 @@ class _MapViewState extends State<MapView> {
   void _onMapCreated(MapboxMap mapboxMap) async {
     _mapboxMap = mapboxMap;
     log("Mapbox map created.");
+    _mapInitialized = true; // Set initialized flag
 
-    if (_coordinatesLoaded) {
-      log("Map created after coordinates loaded, attempting initial setup.");
+    // Check if coordinates and image are ready
+    if (_coordinatesLoaded && _pinImageBytes != null) {
+      log("Map created after coordinates and image loaded, attempting initial setup.");
+      _addPlaceMarkers(); // Add markers now if ready
       _mapboxMap?.flyTo(
         CameraOptions(center: _centerPoint, zoom: 10.0),
-        MapAnimationOptions(duration: 0),
+        MapAnimationOptions(duration: 0), // Fly immediately
       );
     } else {
-      log("Map created, but coordinates are not loaded yet.");
+      log("Map created, but coordinates or pin image are not loaded yet.");
     }
-    _mapInitialized = true;
-    if (mounted) setState(() {});
+    if (mounted)
+      setState(
+          () {}); // Update UI state (e.g., hide loading indicator if needed)
   }
 
   void _onStyleLoaded(StyleLoadedEventData data) {
     log("Event: Map style loaded.");
-    _addPlaceMarkers();
-
-    if (_coordinatesLoaded) {
-      log("Style loaded after coordinates, setting camera position.");
-      _mapboxMap?.flyTo(
-        CameraOptions(center: _centerPoint, zoom: 10.0),
-        MapAnimationOptions(duration: 1000),
-      );
+    // Style loaded implies map is ready. Add markers if coordinates and image are ready.
+    if (_coordinatesLoaded && _pinImageBytes != null) {
+      log("Style loaded, coordinates and image ready. Adding markers.");
+      _addPlaceMarkers();
+      // Optionally flyTo center again if needed, though might have happened in onMapCreated
+      // _mapboxMap?.flyTo(...)
+    } else {
+      log("Style loaded, but coordinates or pin image not ready yet.");
     }
   }
 
   void _onMapIdle(MapIdleEventData data) {
     log("Event: Map idle.");
-    if (_pointAnnotationManager == null && _coordinatesLoaded) {
+    // Attempt to add markers if they haven't been added yet and everything is ready
+    if (_pointAnnotationManager == null &&
+        _coordinatesLoaded &&
+        _pinImageBytes != null) {
       log("Map idle, attempting to add markers again if missed.");
       _addPlaceMarkers();
     }
