@@ -660,8 +660,22 @@ class _MapViewState extends State<MapView> {
           () {}); // Update UI state (e.g., hide loading indicator if needed)
   }
 
-  void _onStyleLoaded(StyleLoadedEventData data) {
+  void _onStyleLoaded(StyleLoadedEventData data) async {
     log("Event: Map style loaded.");
+
+    // Enable the location puck
+    if (_mapboxMap != null) {
+      try {
+        await _mapboxMap!.location
+            .updateSettings(LocationComponentSettings(enabled: true));
+        log("Location puck enabled.");
+      } catch (e) {
+        log("Error enabling location puck: $e");
+        // Optionally show a snackbar if enabling fails
+        // _showErrorSnackbar("Could not show current location.");
+      }
+    }
+
     // Style loaded implies map is ready. Add markers if coordinates and image are ready.
     if (_coordinatesLoaded && _pinImageBytes != null) {
       log("Style loaded, coordinates and image ready. Adding markers.");

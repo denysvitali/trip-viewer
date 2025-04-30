@@ -449,14 +449,14 @@ class Expense {
   final int id;
   @JsonKey(fromJson: _amountFromJson)
   final Amount amount;
-  final String category;
+  final String? category;
   final String? description;
-  final String date;
+  final String? date;
   final int? blockId;
   final int paidByUserId;
   final PaidByUser paidByUser;
   final SplitWith splitWith;
-  final String associatedDate;
+  final String? associatedDate;
 
   Expense({
     required this.id,
