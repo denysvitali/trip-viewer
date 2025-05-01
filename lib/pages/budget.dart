@@ -13,10 +13,11 @@ class BudgetPage extends StatelessWidget {
     // Group expenses by category
     final expensesByCategory = <String, List<Expense>>{};
     for (final expense in budget.expenses) {
-      if (!expensesByCategory.containsKey(expense.category)) {
-        expensesByCategory[expense.category] = [];
+      final category = expense.category ?? 'Uncategorized';
+      if (!expensesByCategory.containsKey(category)) {
+        expensesByCategory[category] = [];
       }
-      expensesByCategory[expense.category]!.add(expense);
+      expensesByCategory[category]!.add(expense);
     }
 
     // Calculate total spent amount

@@ -16,7 +16,7 @@ class ExpensesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     // Sort expenses by date (newest first)
     final sortedExpenses = List<Expense>.from(expenses)
-      ..sort((a, b) => b.date.compareTo(a.date));
+      ..sort((a, b) => b.date?.compareTo(a.date ?? '') ?? 0);
 
     return Scaffold(
       appBar: AppBar(
@@ -42,7 +42,7 @@ class ExpensesPage extends StatelessWidget {
                 final expense = sortedExpenses[index];
                 // Format the date
                 final formattedDate = DateFormat('MMM d, yyyy')
-                    .format(DateTime.parse(expense.date));
+                    .format(DateTime.parse(expense.date ?? ''));
                 final subtitleText =
                     '${expense.amount.format()} - Paid by user ${expense.paidByUserId} on $formattedDate';
 
@@ -50,11 +50,11 @@ class ExpensesPage extends StatelessWidget {
                   leading: CircleAvatar(
                     backgroundColor:
                         Theme.of(context).colorScheme.primaryContainer,
-                    child: Icon(_getCategoryIcon(expense.category)),
+                    child: Icon(_getCategoryIcon(expense.category ?? '')),
                   ),
                   title: Text(expense.description ?? 'No description'),
                   subtitle: Text(subtitleText),
-                  trailing: Text(expense.category),
+                  trailing: Text(expense.category ?? ''),
                 );
               },
             ),
