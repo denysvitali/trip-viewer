@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wanderlog_alt/models/trip_plan.dart';
+import 'package:wanderlog_alt/theme/app_theme.dart';
 import 'package:wanderlog_alt/widgets/blocks/generic_block.dart';
 import 'package:wanderlog_alt/widgets/place_image.dart';
 
@@ -24,106 +25,78 @@ class _PlaceBlockWidgetState extends State<PlaceBlockWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return GenericBlock(
       block: widget.placeBlock,
+      accentColor: AppTheme.placeColor,
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Use user-preferred image from block.imageKeys if available
           if (widget.placeBlock.imageKeys.isNotEmpty ||
-              (widget.metadata != null && widget.metadata!.imageKeys.isNotEmpty))
+              (widget.metadata != null &&
+                  widget.metadata!.imageKeys.isNotEmpty))
             ClipRRect(
               borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
+                  const BorderRadius.vertical(top: Radius.circular(16)),
               child: SizedBox(
-                height: 250,
+                height: 180,
                 width: double.infinity,
-                child: PlaceImage(block: widget.placeBlock, metadata: widget.metadata),
+                child: PlaceImage(
+                    block: widget.placeBlock, metadata: widget.metadata),
               ),
             ),
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _header(context),
-                _body(context),
-                // Hotel information
-                if (widget.placeBlock.hotel != null) ...[
-                  const SizedBox(height: 8),
-                  _hotelInfo(context),
+                _buildHeader(theme),
+                if (widget.metadata?.rating != null) ...[
+                  const SizedBox(height: 6),
+                  _buildRating(theme),
                 ],
-                // Price information
-                if (widget.placeBlock.price != null) ...[
+                if (widget.placeBlock.description != null) ...[
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.attach_money, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${widget.placeBlock.price!.amount.amount} ${widget.placeBlock.price!.amount.currencyCode}',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
+                  _buildExpandableDescription(
+                      theme, widget.placeBlock.description!),
+                ],
+                if (widget.metadata?.description != null ||
+                    widget.metadata?.generatedDescription != null) ...[
+                  const SizedBox(height: 8),
+                  _buildExpandableDescription(
+                    theme,
+                    widget.metadata!.description ??
+                        widget.metadata!.generatedDescription ??
+                        '',
                   ),
+                ],
+                if (widget.placeBlock.hotel != null) ...[
+                  const SizedBox(height: 10),
+                  _buildHotelInfo(theme),
                 ],
                 if (widget.expense != null) ...[
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.receipt, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${widget.expense!.amount.amount} ${widget.expense!.amount.currencyCode}',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
+                  _buildExpenseRow(theme),
                 ],
-                // User's custom description
-                if (widget.placeBlock.description != null) ...[
-                  const SizedBox(height: 8),
-                  _expandableDescription(context, widget.placeBlock.description!),
-                ],
-                // Place address
                 if (widget.placeBlock.place.formattedAddress.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.location_on, size: 16),
-                      const SizedBox(width: 4),
+                      Icon(Icons.location_on_outlined,
+                          size: 16,
+                          color: theme.colorScheme.onSurfaceVariant),
+                      const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           widget.placeBlock.place.formattedAddress,
-                          style: Theme.of(context).textTheme.bodySmall,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     ],
-                  ),
-                ],
-                // Google Maps link
-                if (widget.placeBlock.place.url != null) ...[
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () {
-                      // Could launch URL here with url_launcher package
-                    },
-                    child: Row(
-                      children: [
-                        const Icon(Icons.map, size: 16, color: Colors.blue),
-                        const SizedBox(width: 4),
-                        Text(
-                          'View on Google Maps',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.blue,
-                                decoration: TextDecoration.underline,
-                              ),
-                        ),
-                      ],
-                    ),
                   ),
                 ],
               ],
@@ -134,88 +107,84 @@ class _PlaceBlockWidgetState extends State<PlaceBlockWidget> {
     );
   }
 
-  Widget _header(BuildContext context) {
-    List<Widget> children = [];
-    children.add(
-      Expanded(
+  Widget _buildHeader(ThemeData theme) {
+    return Row(
+      children: [
+        Expanded(
           child: Text(
-        widget.placeBlock.place.name,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
+            widget.placeBlock.place.name,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
-      )),
-    );
-
-    String startEndTime = "";
-    if (widget.placeBlock.startTime != null) {
-      startEndTime += widget.placeBlock.startTime!;
-    }
-    if (widget.placeBlock.endTime != null) {
-      startEndTime += " - ";
-      startEndTime += widget.placeBlock.endTime!;
-    }
-    if (startEndTime != "") {
-      children.addAll(
-        [
-          const Icon(
-            Icons.access_time,
-            size: 16,
           ),
+        ),
+        if (widget.placeBlock.startTime != null) ...[
+          Icon(Icons.schedule,
+              size: 14, color: theme.colorScheme.onSurfaceVariant),
           const SizedBox(width: 4),
           Text(
-            startEndTime,
-            style: Theme.of(context).textTheme.bodyMedium,
-          )
+            [
+              widget.placeBlock.startTime,
+              if (widget.placeBlock.endTime != null) widget.placeBlock.endTime
+            ].join(' - '),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
-      );
-    }
-    return Row(children: children);
+      ],
+    );
   }
 
-  String formatNumber(int number) {
-    if (number > 1000) {
-      return '${(number / 1000).toStringAsFixed(1)}k';
-    }
-    return number.toString();
-  }
-
-  Widget _body(BuildContext context) {
-    List<Widget> children = [];
-    if (widget.metadata == null) {
-      return Container();
-    }
-    if (widget.metadata!.rating != null) {
-      children.addAll([
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            Icon(
-              Icons.star,
-              size: 16,
-              color: Colors.amber,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              "${widget.metadata!.rating} (${formatNumber(widget.metadata!.numRatings!)})",
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
+  Widget _buildRating(ThemeData theme) {
+    return Row(
+      children: [
+        const Icon(Icons.star_rounded, size: 16, color: Colors.amber),
+        const SizedBox(width: 4),
+        Text(
+          '${widget.metadata!.rating}',
+          style: theme.textTheme.bodySmall
+              ?.copyWith(fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: 4),
-      ]);
-    }
-    // Show metadata description (from Google/generated) with expand/collapse
-    if (widget.metadata!.description != null ||
-        widget.metadata!.generatedDescription != null) {
-      final description =
-          widget.metadata!.description ?? widget.metadata!.generatedDescription ?? '';
-      children.add(_expandableDescription(context, description));
-    }
-    return Column(
-        crossAxisAlignment: CrossAxisAlignment.start, children: children);
+        if (widget.metadata!.numRatings != null) ...[
+          const SizedBox(width: 4),
+          Text(
+            '(${_formatNumber(widget.metadata!.numRatings!)})',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
+    );
   }
 
-  Widget _expandableDescription(BuildContext context, String description) {
+  Widget _buildExpenseRow(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.tertiaryContainer.withAlpha(80),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.receipt_outlined,
+              size: 14, color: theme.colorScheme.onTertiaryContainer),
+          const SizedBox(width: 6),
+          Text(
+            widget.expense!.amount.format(),
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onTertiaryContainer,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpandableDescription(ThemeData theme, String description) {
     final isLong = description.length > 150;
     final displayText = _isExpanded || !isLong
         ? description
@@ -226,95 +195,84 @@ class _PlaceBlockWidgetState extends State<PlaceBlockWidget> {
       children: [
         Text(
           displayText,
-          style: Theme.of(context).textTheme.bodyMedium,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
         if (isLong)
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _isExpanded = !_isExpanded;
-              });
-            },
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              minimumSize: const Size(0, 30),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: Text(
-              _isExpanded ? 'Show less' : 'Show more',
-              style: const TextStyle(fontSize: 14),
+          GestureDetector(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                _isExpanded ? 'Show less' : 'Show more',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
       ],
     );
   }
 
-  Widget _hotelInfo(BuildContext context) {
+  Widget _buildHotelInfo(ThemeData theme) {
     final hotel = widget.placeBlock.hotel!;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        color: theme.colorScheme.surfaceContainerHighest.withAlpha(100),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.hotel, size: 16),
-              const SizedBox(width: 4),
+              Icon(Icons.hotel,
+                  size: 16, color: theme.colorScheme.onSurfaceVariant),
+              const SizedBox(width: 6),
               Text(
                 'Hotel Information',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
           if (hotel.checkIn != null) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.login, size: 14),
-                const SizedBox(width: 4),
-                Text(
-                  'Check-in: ${hotel.checkIn}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
+            const SizedBox(height: 6),
+            _infoRow(theme, Icons.login, 'Check-in: ${hotel.checkIn}'),
           ],
           if (hotel.checkOut != null) ...[
             const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(Icons.logout, size: 14),
-                const SizedBox(width: 4),
-                Text(
-                  'Check-out: ${hotel.checkOut}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
+            _infoRow(theme, Icons.logout, 'Check-out: ${hotel.checkOut}'),
           ],
           if (hotel.confirmationNumber != null) ...[
             const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(Icons.confirmation_number, size: 14),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    'Confirmation: ${hotel.confirmationNumber}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-              ],
-            ),
+            _infoRow(theme, Icons.confirmation_number,
+                'Confirmation: ${hotel.confirmationNumber}'),
           ],
         ],
       ),
     );
+  }
+
+  Widget _infoRow(ThemeData theme, IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(text, style: theme.textTheme.bodySmall),
+        ),
+      ],
+    );
+  }
+
+  String _formatNumber(int number) {
+    if (number >= 1000) return '${(number / 1000).toStringAsFixed(1)}k';
+    return number.toString();
   }
 }

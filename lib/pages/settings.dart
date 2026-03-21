@@ -1,74 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class SettingsPage extends StatefulWidget {
-  final Function(String) onTripIdChanged;
+class SettingsPage extends StatelessWidget {
+  const SettingsPage({super.key});
 
-  const SettingsPage({
-    super.key,
-    required this.onTripIdChanged,
-  });
-
-  @override
-  State<SettingsPage> createState() => _SettingsPageState();
-}
-
-class _SettingsPageState extends State<SettingsPage> {
-  final _tripIdController = TextEditingController();
-  static const String tripIdKey = 'tripId';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadTripId();
-  }
-
-  Future<void> _loadTripId() async {
-    final prefs = await SharedPreferences.getInstance();
-    final tripId = prefs.getString(tripIdKey) ?? '';
-    setState(() {
-      _tripIdController.text = tripId;
-    });
-  }
-
-  Future<void> _saveTripId(String tripId) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(tripIdKey, tripId);
-    widget.onTripIdChanged(tripId);
-  }
-
-  Future<void> _showTripIdDialog() async {
-    final TextEditingController dialogController =
-        TextEditingController(text: _tripIdController.text);
-
-    return showDialog(
+  Future<void> _clearAllCache(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Edit Trip ID'),
-        content: TextField(
-          controller: dialogController,
-          decoration: const InputDecoration(
-            labelText: 'Trip ID',
-          ),
-        ),
+        title: const Text('Clear Cache'),
+        content: const Text(
+            'This will clear all cached trip data. Your saved trips will be kept, but data will be re-fetched next time you open them.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          TextButton(
-            onPressed: () {
-              _saveTripId(dialogController.text);
-              setState(() {
-                _tripIdController.text = dialogController.text;
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('Save'),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Clear'),
           ),
         ],
       ),
     );
+
+    if (confirmed == true && context.mounted) {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys().where(
+          (k) => k.startsWith('trip_data_') || k.startsWith('last_fetch_'));
+      for (final key in keys) {
+        await prefs.remove(key);
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cache cleared')),
+        );
+      }
+    }
   }
 
   @override
@@ -77,27 +45,44 @@ class _SettingsPageState extends State<SettingsPage> {
       appBar: AppBar(
         title: const Text('Settings'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            ListTile(
-              title: const Text('Trip ID'),
-              subtitle: Text(_tripIdController.text.isEmpty
-                  ? 'Not set'
-                  : _tripIdController.text),
-              trailing: const Icon(Icons.edit),
-              onTap: _showTripIdDialog,
-            ),
-          ],
-        ),
+      body: ListView(
+        children: [
+          const SizedBox(height: 8),
+          _SectionHeader(title: 'Data'),
+          ListTile(
+            leading: const Icon(Icons.cached),
+            title: const Text('Clear cache'),
+            subtitle: const Text('Re-fetch trip data on next open'),
+            onTap: () => _clearAllCache(context),
+          ),
+          const Divider(),
+          _SectionHeader(title: 'About'),
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('Wanderlog Alt'),
+            subtitle: const Text(
+                'An alternative client for viewing Wanderlog trip itineraries'),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
 
   @override
-  void dispose() {
-    _tripIdController.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+      ),
+    );
   }
 }

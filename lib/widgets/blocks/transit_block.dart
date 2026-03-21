@@ -1,147 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:wanderlog_alt/models/trip_plan.dart';
+import 'package:wanderlog_alt/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 
-class StationInfo extends StatelessWidget {
-  final DepartArrivePlace info;
-  final bool isDeparture;
-
-  const StationInfo({
-    super.key,
-    required this.info,
-    this.isDeparture = true,
-  });
-
-  String _formatDate(String date) {
-    final dt = DateTime.parse(date);
-    return DateFormat('E, MMM d').format(dt);
-  }
-
-  String _formatTime(String time) {
-    final dt = DateTime.parse('2024-01-01T$time');
-    return DateFormat('HH:mm').format(dt);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(
-          _formatDate(info.date),
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        if (info.time != null)
-          Text(
-            _formatTime(info.time!),
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-        const SizedBox(height: 16),
-        Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const SizedBox(height: 8),
-            InkWell(
-              onTap: () {
-                if (info.place.url != null) {
-                  launchUrl(
-                    Uri.parse(info.place.url!),
-                    webOnlyWindowName: '_blank',
-                    mode: LaunchMode.externalApplication,
-                  );
-                }
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      info.place.name,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      info.place.formattedAddress,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                            color: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.color
-                                ?.withOpacity(0.6),
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class TransitFooter extends StatelessWidget {
-  final TransitBlock transitBlock;
-  final Expense? expense;
-
-  const TransitFooter({super.key, required this.transitBlock, this.expense});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(
-          transitBlock.carrier ?? '',
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
-        if (transitBlock.confirmationNumber != null)
-          Row(children: [
-            Icon(
-              Icons.confirmation_number,
-              color: Theme.of(context).colorScheme.secondary,
-              size: 18,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              transitBlock.confirmationNumber ?? '',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ]),
-        if (expense != null)
-          Row(children: [
-            Icon(
-              Icons.attach_money,
-              color: Theme.of(context).colorScheme.secondary,
-              size: 18,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '${expense!.amount.amount} ${expense!.amount.currencyCode}',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ]),
-      ]),
-    );
-  }
-}
-
-enum TransitType {
-  bus,
-  train,
-  other,
-}
+enum TransitType { bus, train, other }
 
 class TransitBlockWidget extends StatefulWidget {
   final TransitBlock transitBlock;
@@ -170,124 +32,177 @@ class _TransitBlockWidgetState extends State<TransitBlockWidget> {
     _isExpanded = widget.initiallyExpanded;
   }
 
-  void _toggleExpanded() {
-    setState(() {
-      _isExpanded = !_isExpanded;
-    });
-  }
+  void _toggleExpanded() => setState(() => _isExpanded = !_isExpanded);
 
-  IconData _getTransitTypeIcon() {
+  IconData _getIcon() {
     switch (widget.transitType) {
       case TransitType.bus:
         return Icons.directions_bus;
       case TransitType.train:
         return Icons.train;
       default:
-        return Icons.emoji_transportation;
+        return Icons.directions_transit;
     }
   }
 
-  Widget _buildCompressedView(BuildContext context) {
-    return Card(
-      elevation: 2,
-      child: InkWell(
-        onTap: _toggleExpanded,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: _CompressedStationInfo(info: widget.transitBlock.depart),
-              ),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 8),
-                  Icon(
-                    _getTransitTypeIcon(),
-                    color: Theme.of(context).colorScheme.secondary,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.transitBlock.carrier ?? '',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.secondary,
-                        ),
-                  ),
-                ],
-              ),
-              Expanded(
-                child: _CompressedStationInfo(info: widget.transitBlock.arrive),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  String _formatDate(String date) {
+    return DateFormat('E, MMM d').format(DateTime.parse(date));
   }
 
-  Widget _buildExpandedView(BuildContext context) {
+  String _formatTime(String time) {
+    return DateFormat('HH:mm').format(DateTime.parse('2024-01-01T$time'));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final transit = widget.transitBlock;
+
     return Card(
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: InkWell(
+        borderRadius: BorderRadius.circular(16),
         onTap: _toggleExpanded,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: IntrinsicHeight(
+          child: Row(
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: StationInfo(
-                      info: widget.transitBlock.depart,
-                      isDeparture: true,
-                    ),
+              Container(
+                width: 4,
+                decoration: const BoxDecoration(
+                  color: AppTheme.transitColor,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    bottomLeft: Radius.circular(16),
                   ),
-                  Column(
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
                     children: [
-                      Container(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        width: 2,
-                        height: 50,
-                        color: Theme.of(context).colorScheme.secondary,
+                      // Compact route row
+                      Row(
+                        children: [
+                          _StationName(
+                            name: transit.depart.place.name,
+                            time: transit.depart.time != null
+                                ? _formatTime(transit.depart.time!)
+                                : null,
+                          ),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                if (transit.carrier != null)
+                                  Text(
+                                    transit.carrier!,
+                                    style:
+                                        theme.textTheme.labelSmall?.copyWith(
+                                      color:
+                                          theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Divider(
+                                          color: AppTheme.transitColor
+                                              .withAlpha(80)),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8),
+                                      child: Icon(_getIcon(),
+                                          size: 18,
+                                          color: AppTheme.transitColor),
+                                    ),
+                                    Expanded(
+                                      child: Divider(
+                                          color: AppTheme.transitColor
+                                              .withAlpha(80)),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          _StationName(
+                            name: transit.arrive.place.name,
+                            time: transit.arrive.time != null
+                                ? _formatTime(transit.arrive.time!)
+                                : null,
+                          ),
+                        ],
                       ),
-                      Icon(
-                        _getTransitTypeIcon(),
-                        color: Theme.of(context).colorScheme.secondary,
-                      ),
-                      Container(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        width: 2,
-                        height: 50,
-                        color: Theme.of(context).colorScheme.secondary,
+                      // Expanded details
+                      AnimatedCrossFade(
+                        duration: const Duration(milliseconds: 200),
+                        crossFadeState: _isExpanded
+                            ? CrossFadeState.showSecond
+                            : CrossFadeState.showFirst,
+                        firstChild: const SizedBox.shrink(),
+                        secondChild: Column(
+                          children: [
+                            const SizedBox(height: 12),
+                            Divider(
+                                color: theme.colorScheme.outlineVariant,
+                                height: 1),
+                            const SizedBox(height: 12),
+                            _buildDetailRow(
+                              theme,
+                              Icons.departure_board,
+                              transit.depart.place.formattedAddress,
+                              _formatDate(transit.depart.date),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildDetailRow(
+                              theme,
+                              Icons.pin_drop_outlined,
+                              transit.arrive.place.formattedAddress,
+                              _formatDate(transit.arrive.date),
+                            ),
+                            if (transit.confirmationNumber != null) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(Icons.confirmation_number_outlined,
+                                      size: 14,
+                                      color: theme
+                                          .colorScheme.onSurfaceVariant),
+                                  const SizedBox(width: 8),
+                                  Text(transit.confirmationNumber!,
+                                      style: theme.textTheme.bodySmall),
+                                ],
+                              ),
+                            ],
+                            if (widget.expense != null) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(Icons.receipt_outlined,
+                                      size: 14,
+                                      color: theme
+                                          .colorScheme.onSurfaceVariant),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    widget.expense!.amount.format(),
+                                    style:
+                                        theme.textTheme.bodySmall?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                  Expanded(
-                    child: StationInfo(
-                      info: widget.transitBlock.arrive,
-                      isDeparture: false,
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  Icon(
-                    _getTransitTypeIcon(),
-                    size: 18,
-                    color: Theme.of(context).colorScheme.secondary,
-                  ),
-                  const SizedBox(width: 8),
-                  TransitFooter(transitBlock: widget.transitBlock, expense: widget.expense),
-                ],
+                ),
               ),
             ],
           ),
@@ -296,39 +211,64 @@ class _TransitBlockWidgetState extends State<TransitBlockWidget> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return _isExpanded
-        ? _buildExpandedView(context)
-        : _buildCompressedView(context);
+  Widget _buildDetailRow(
+      ThemeData theme, IconData icon, String label, String detail) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: theme.textTheme.bodySmall,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        Text(
+          detail,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
   }
 }
 
-class _CompressedStationInfo extends StatelessWidget {
-  final DepartArrivePlace info;
-  const _CompressedStationInfo({required this.info});
+class _StationName extends StatelessWidget {
+  final String name;
+  final String? time;
+
+  const _StationName({required this.name, this.time});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          info.place.name,
-          style: Theme.of(context).textTheme.titleMedium,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 6),
-        if (info.time != null)
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: 80,
+      child: Column(
+        children: [
           Text(
-            StationInfo(info: info)._formatTime(info.time!),
-            style: Theme.of(context).textTheme.bodyMedium,
+            name,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-        Text(
-          StationInfo(info: info)._formatDate(info.date),
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-      ],
+          if (time != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              time!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

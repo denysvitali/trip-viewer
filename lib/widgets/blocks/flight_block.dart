@@ -1,125 +1,8 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wanderlog_alt/models/trip_plan.dart';
+import 'package:wanderlog_alt/theme/app_theme.dart';
 import 'package:intl/intl.dart';
-
-class AirportInfo extends StatelessWidget {
-  final DepartArrive info;
-  final bool isDeparture;
-
-  const AirportInfo({
-    super.key,
-    required this.info,
-    this.isDeparture = true,
-  });
-
-  String _formatDate(String date) {
-    final dt = DateTime.parse(date);
-    return DateFormat('E, MMM d').format(dt);
-  }
-
-  String _formatTime(String time) {
-    final dt = DateTime.parse('2024-01-01T$time');
-    return DateFormat('HH:mm').format(dt);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(
-          _formatDate(info.date),
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        Text(
-          _formatTime(info.time),
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        const SizedBox(height: 16),
-        Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isDeparture ? Icons.flight_takeoff : Icons.flight_land,
-              size: 20,
-            ),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: () => {
-                if (info.airport.googlePlace.url != null)
-                  {
-                    log("Launching URL: ${info.airport.googlePlace.url!}"),
-                    launchUrl(
-                      Uri.parse(info.airport.googlePlace.url!),
-                      webOnlyWindowName: '_blank',
-                      mode: LaunchMode.externalApplication,
-                    ),
-                  }
-              },
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    info.airport.iata,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    info.airport.name,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                          color: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.color
-                              ?.withOpacity(0.6),
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class FlightFooter extends StatelessWidget {
-  final FlightBlock flightBlock;
-  final Expense? expense;
-
-  const FlightFooter({super.key, required this.flightBlock, this.expense});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          '${flightBlock.flightInfo.airline.name} ${flightBlock.flightInfo.number}',
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
-        if (expense != null)
-          Text(
-            '${expense!.amount.amount} ${expense!.amount.currencyCode}',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-      ],
-    );
-  }
-}
 
 class FlightBlockWidget extends StatefulWidget {
   final FlightBlock flightBlock;
@@ -146,165 +29,202 @@ class _FlightBlockWidgetState extends State<FlightBlockWidget> {
     _isExpanded = widget.initiallyExpanded;
   }
 
-  void _toggleExpanded() {
-    setState(() {
-      _isExpanded = !_isExpanded;
-    });
-  }
+  void _toggleExpanded() => setState(() => _isExpanded = !_isExpanded);
 
   void _openFlightInfo() {
-    String flightAwareUrl =
+    final url =
         "https://www.flightaware.com/live/flight/${widget.flightBlock.flightInfo.airline.icao}${widget.flightBlock.flightInfo.number}/";
-    launchUrl(
-      Uri.parse(flightAwareUrl),
-      webOnlyWindowName: '_blank',
-      mode: LaunchMode.externalApplication,
-    );
+    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 
-  Widget _buildCompressedView(BuildContext context) {
-    return Card(
-      elevation: 2,
-      child: InkWell(
-        onTap: _toggleExpanded,
-        onLongPress: _openFlightInfo,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child:
-                        _CompressedAirportInfo(info: widget.flightBlock.depart),
-                  ),
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 8),
-                      Icon(
-                        Icons.flight,
-                        color: Theme.of(context).colorScheme.secondary,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${widget.flightBlock.flightInfo.airline.name} ${widget.flightBlock.flightInfo.number}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.secondary,
-                            ),
-                      ),
-                    ],
-                  ),
-                  Expanded(
-                    child:
-                        _CompressedAirportInfo(info: widget.flightBlock.arrive),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  String _formatDate(String date) {
+    return DateFormat('E, MMM d').format(DateTime.parse(date));
   }
 
-  Widget _buildExpandedView(BuildContext context) {
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: InkWell(
-        onTap: _toggleExpanded,
-        onLongPress: _openFlightInfo,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: AirportInfo(
-                      info: widget.flightBlock.depart,
-                      isDeparture: true,
-                    ),
-                  ),
-                  Column(
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        width: 2,
-                        height: 50,
-                        color: Theme.of(context).colorScheme.secondary,
-                      ),
-                      Icon(
-                        Icons.flight,
-                        color: Theme.of(context).colorScheme.secondary,
-                      ),
-                      Container(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        width: 2,
-                        height: 50,
-                        color: Theme.of(context).colorScheme.secondary,
-                      ),
-                    ],
-                  ),
-                  Expanded(
-                    child: AirportInfo(
-                      info: widget.flightBlock.arrive,
-                      isDeparture: false,
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  const Icon(Icons.flight, size: 18, color: Colors.grey),
-                  const SizedBox(width: 8),
-                  FlightFooter(flightBlock: widget.flightBlock, expense: widget.expense),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  String _formatTime(String time) {
+    return DateFormat('HH:mm').format(DateTime.parse('2024-01-01T$time'));
   }
 
   @override
   Widget build(BuildContext context) {
-    return _isExpanded
-        ? _buildExpandedView(context)
-        : _buildCompressedView(context);
+    final theme = Theme.of(context);
+    final flight = widget.flightBlock;
+
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: _toggleExpanded,
+        onLongPress: _openFlightInfo,
+        child: IntrinsicHeight(
+          child: Row(
+            children: [
+              Container(
+                width: 4,
+                decoration: const BoxDecoration(
+                  color: AppTheme.flightColor,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    bottomLeft: Radius.circular(16),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      // Compact airport row (always shown)
+                      Row(
+                        children: [
+                          _AirportCode(
+                            code: flight.depart.airport.iata,
+                            time: _formatTime(flight.depart.time),
+                          ),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text(
+                                  '${flight.flightInfo.airline.name ?? ''} ${flight.flightInfo.number}',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color:
+                                        theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Divider(
+                                          color: AppTheme.flightColor
+                                              .withAlpha(80)),
+                                    ),
+                                    const Padding(
+                                      padding:
+                                          EdgeInsets.symmetric(horizontal: 8),
+                                      child: Icon(Icons.flight,
+                                          size: 18,
+                                          color: AppTheme.flightColor),
+                                    ),
+                                    Expanded(
+                                      child: Divider(
+                                          color: AppTheme.flightColor
+                                              .withAlpha(80)),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          _AirportCode(
+                            code: flight.arrive.airport.iata,
+                            time: _formatTime(flight.arrive.time),
+                          ),
+                        ],
+                      ),
+                      // Expanded details
+                      AnimatedCrossFade(
+                        duration: const Duration(milliseconds: 200),
+                        crossFadeState: _isExpanded
+                            ? CrossFadeState.showSecond
+                            : CrossFadeState.showFirst,
+                        firstChild: const SizedBox.shrink(),
+                        secondChild: Column(
+                          children: [
+                            const SizedBox(height: 12),
+                            Divider(
+                                color: theme.colorScheme.outlineVariant,
+                                height: 1),
+                            const SizedBox(height: 12),
+                            _buildDetailRow(
+                              theme,
+                              Icons.flight_takeoff,
+                              flight.depart.airport.name,
+                              _formatDate(flight.depart.date),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildDetailRow(
+                              theme,
+                              Icons.flight_land,
+                              flight.arrive.airport.name,
+                              _formatDate(flight.arrive.date),
+                            ),
+                            if (widget.expense != null) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(Icons.receipt_outlined,
+                                      size: 14,
+                                      color: theme
+                                          .colorScheme.onSurfaceVariant),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    widget.expense!.amount.format(),
+                                    style:
+                                        theme.textTheme.bodySmall?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(
+      ThemeData theme, IconData icon, String label, String detail) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(label, style: theme.textTheme.bodySmall),
+        ),
+        Text(
+          detail,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
   }
 }
 
-class _CompressedAirportInfo extends StatelessWidget {
-  final DepartArrive info;
+class _AirportCode extends StatelessWidget {
+  final String code;
+  final String time;
 
-  const _CompressedAirportInfo({required this.info});
+  const _AirportCode({required this.code, required this.time});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          info.airport.iata,
-          style: Theme.of(context).textTheme.titleMedium,
+          code,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 2),
         Text(
-          AirportInfo(info: info)._formatTime(info.time),
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-        Text(
-          AirportInfo(info: info)._formatDate(info.date),
-          style: Theme.of(context).textTheme.bodySmall,
+          time,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );

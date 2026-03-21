@@ -1,130 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wanderlog_alt/models/trip_plan.dart';
+import 'package:wanderlog_alt/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-class _DateLabel extends StatelessWidget {
-  final DateTime date;
-  final BuildContext context;
-
-  const _DateLabel({required this.date, required this.context});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      DateFormat('E, MMM d').format(date),
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onPrimaryContainer,
-            fontWeight: FontWeight.bold,
-          ),
-    );
-  }
-}
-
-class _CheckInOutIcon extends StatelessWidget {
-  final bool isCheckIn;
-
-  const _CheckInOutIcon({required this.isCheckIn});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(isCheckIn ? Icons.login : Icons.logout, size: 20),
-        const SizedBox(height: 14),
-        Text(
-          isCheckIn ? 'Check-in' : 'Check-out',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-      ],
-    );
-  }
-}
-
-class _DividerLine extends StatelessWidget {
-  const _DividerLine();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      width: 2,
-      height: 30,
-      color: Theme.of(context).colorScheme.secondary,
-    );
-  }
-}
-
-class StayDateInfo extends StatelessWidget {
-  final DateTime date;
-  final bool isCheckIn;
-
-  const StayDateInfo({
-    super.key,
-    required this.date,
-    this.isCheckIn = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        _DateLabel(date: date, context: context),
-        const SizedBox(height: 14),
-        _CheckInOutIcon(isCheckIn: isCheckIn),
-      ],
-    );
-  }
-}
-
-class _HotelInfo extends StatelessWidget {
-  final PlaceBlock placeBlock;
-  final PlaceMetadata? metadata;
-  final Expense? expense;
-
-  const _HotelInfo({required this.placeBlock, required this.metadata, this.expense});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Spacer(),
-        if (placeBlock.hotel?.confirmationNumber != null)
-          _ConfirmationNumber(number: placeBlock.hotel!.confirmationNumber!),
-        if (expense != null)
-          Text(
-            '${expense!.amount.amount} ${expense!.amount.currencyCode}',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-      ],
-    );
-  }
-}
-
-class _ConfirmationNumber extends StatelessWidget {
-  final String number;
-
-  const _ConfirmationNumber({required this.number});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(
-          Icons.confirmation_number,
-          size: 18,
-          color: Theme.of(context).colorScheme.secondary,
-        ),
-        const SizedBox(width: 8),
-        Text(
-          number,
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-      ],
-    );
-  }
-}
 
 class HotelBlockWidget extends StatefulWidget {
   final PlaceBlock placeBlock;
@@ -155,13 +33,11 @@ class _HotelBlockWidgetState extends State<HotelBlockWidget>
     super.initState();
     _isExpanded = widget.initiallyExpanded;
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
       vsync: this,
     );
-    _heightFactor = _controller.drive(CurveTween(curve: Curves.easeInOut));
-    if (_isExpanded) {
-      _controller.value = 1.0;
-    }
+    _heightFactor = _controller.drive(CurveTween(curve: Curves.easeOutCubic));
+    if (_isExpanded) _controller.value = 1.0;
   }
 
   @override
@@ -173,130 +49,176 @@ class _HotelBlockWidgetState extends State<HotelBlockWidget>
   void _toggleExpanded() {
     setState(() {
       _isExpanded = !_isExpanded;
-      if (_isExpanded) {
-        _controller.forward();
-      } else {
-        _controller.reverse();
-      }
+      _isExpanded ? _controller.forward() : _controller.reverse();
     });
-  }
-
-  Widget _buildCompressedView() {
-    return SizedBox(
-      height: 100,
-      width: double.infinity,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.placeBlock.place.name,
-              style: Theme.of(context).textTheme.titleMedium,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${DateFormat('MMM d').format(DateTime.parse(widget.placeBlock.hotel?.checkIn ?? ''))} - ${DateFormat('MMM d').format(DateTime.parse(widget.placeBlock.hotel?.checkOut ?? ''))}',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hotel = widget.placeBlock.hotel;
+
     return Card(
-      elevation: 2,
-      clipBehavior: Clip.antiAlias,
       child: InkWell(
+        borderRadius: BorderRadius.circular(16),
         onTap: _toggleExpanded,
         onLongPress: () {
           if (widget.placeBlock.place.url != null) {
-            launchUrl(
-              Uri.parse(widget.placeBlock.place.url!),
-              mode: LaunchMode.externalApplication,
-            );
+            launchUrl(Uri.parse(widget.placeBlock.place.url!),
+                mode: LaunchMode.externalApplication);
           }
         },
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            return Column(
-              children: [
-                _buildCompressedView(),
-                ClipRect(
-                  child: Align(
-                    heightFactor: _heightFactor.value,
-                    child: Column(
+        child: IntrinsicHeight(
+          child: Row(
+            children: [
+              Container(
+                width: 4,
+                decoration: const BoxDecoration(
+                  color: AppTheme.hotelColor,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    bottomLeft: Radius.circular(16),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, child) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Always-visible header
                         Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
                             children: [
-                              const SizedBox(height: 16),
-                              _buildDateSection(context),
-                              const SizedBox(height: 16),
-                              if (widget.metadata?.description != null ||
-                                  widget.metadata?.generatedDescription != null)
-                                Text(
-                                  widget.metadata?.description ??
-                                      widget.metadata?.generatedDescription ??
-                                      '',
-                                  style: Theme.of(context).textTheme.bodyMedium,
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.hotelColor.withAlpha(30),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
-                              const Divider(height: 24),
-                              _HotelInfo(
-                                placeBlock: widget.placeBlock,
-                                metadata: widget.metadata,
-                                expense: widget.expense,
+                                child: const Icon(Icons.hotel,
+                                    color: AppTheme.hotelColor, size: 20),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      widget.placeBlock.place.name,
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (hotel?.checkIn != null &&
+                                        hotel?.checkOut != null)
+                                      Text(
+                                        '${DateFormat('MMM d').format(DateTime.parse(hotel!.checkIn!))} - ${DateFormat('MMM d').format(DateTime.parse(hotel.checkOut!))}',
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                          color: theme
+                                              .colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                _isExpanded
+                                    ? Icons.expand_less
+                                    : Icons.expand_more,
+                                color:
+                                    theme.colorScheme.onSurfaceVariant,
                               ),
                             ],
                           ),
                         ),
+                        // Expandable content
+                        ClipRect(
+                          child: Align(
+                            heightFactor: _heightFactor.value,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                  16, 0, 16, 16),
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Divider(
+                                      color: theme
+                                          .colorScheme.outlineVariant,
+                                      height: 1),
+                                  const SizedBox(height: 12),
+                                  if (widget.metadata?.description !=
+                                          null ||
+                                      widget.metadata
+                                              ?.generatedDescription !=
+                                          null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                          bottom: 12),
+                                      child: Text(
+                                        widget.metadata?.description ??
+                                            widget.metadata
+                                                ?.generatedDescription ??
+                                            '',
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                          color: theme.colorScheme
+                                              .onSurfaceVariant,
+                                        ),
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  if (hotel?.confirmationNumber != null)
+                                    _infoRow(
+                                      theme,
+                                      Icons.confirmation_number_outlined,
+                                      hotel!.confirmationNumber!,
+                                    ),
+                                  if (widget.expense != null)
+                                    Padding(
+                                      padding:
+                                          const EdgeInsets.only(top: 8),
+                                      child: _infoRow(
+                                        theme,
+                                        Icons.receipt_outlined,
+                                        widget.expense!.amount.format(),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
-                    ),
-                  ),
+                    );
+                  },
                 ),
-              ],
-            );
-          },
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildDateSection(BuildContext context) {
+  Widget _infoRow(ThemeData theme, IconData icon, String text) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: StayDateInfo(
-            date: DateTime.parse(widget.placeBlock.hotel?.checkIn ?? ''),
-            isCheckIn: true,
-          ),
-        ),
-        Column(
-          children: [
-            const _DividerLine(),
-            Icon(
-              Icons.hotel,
-              color: Theme.of(context).colorScheme.secondary,
-            ),
-            const _DividerLine(),
-          ],
-        ),
-        Expanded(
-          child: StayDateInfo(
-            date: DateTime.parse(widget.placeBlock.hotel?.checkOut ?? ''),
-            isCheckIn: false,
-          ),
-        ),
+        Icon(icon,
+            size: 16, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Text(text, style: theme.textTheme.bodySmall),
       ],
     );
   }

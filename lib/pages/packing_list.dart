@@ -33,8 +33,9 @@ class PackingItem {
 
 class PackingListPage extends StatefulWidget {
   final TripPlan tripPlan;
+  final String? tripId;
 
-  const PackingListPage({super.key, required this.tripPlan});
+  const PackingListPage({super.key, required this.tripPlan, this.tripId});
 
   @override
   State<PackingListPage> createState() => _PackingListPageState();
@@ -70,9 +71,8 @@ class _PackingListPageState extends State<PackingListPage> {
     super.dispose();
   }
 
-  // Generate a storage key based on the trip ID
   String get _storageKey =>
-      'packing_list_${widget.tripPlan.title.replaceAll(' ', '_')}';
+      'packing_list_${widget.tripId ?? widget.tripPlan.title.replaceAll(' ', '_')}';
 
   Future<void> _loadItems() async {
     setState(() {

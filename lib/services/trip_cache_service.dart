@@ -26,4 +26,10 @@ class TripCacheService {
         ? DateTime.fromMillisecondsSinceEpoch(timestamp)
         : null;
   }
+
+  static Future<void> deleteCachedTrip(String tripId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('$_tripDataKey$tripId');
+    await prefs.remove('$_lastFetchKey$tripId');
+  }
 }
