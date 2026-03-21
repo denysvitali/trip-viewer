@@ -9,15 +9,16 @@ permissions:
 jobs:
   update-goldens:
     name: Regenerate Golden Images
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -32,15 +33,15 @@ jobs:
           echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
 
       - name: Get dependencies
-        run: flutter pub get
+        run: devenv shell -- flutter pub get
 
       - name: Generate code
         run: |
-          flutter pub run build_runner build --delete-conflicting-outputs
-          flutter gen-l10n
+          devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
+          devenv shell -- flutter gen-l10n
 
       - name: Regenerate golden images
-        run: flutter test --update-goldens test/goldens/
+        run: devenv shell -- flutter test --update-goldens test/goldens/
 
       - name: Commit updated goldens
         run: |

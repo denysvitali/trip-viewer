@@ -48,3 +48,7 @@ app.*.map.json
 **/*.g.dart
 .env
 android/app/.cxx
+
+# devenv
+.devenv/
+.devenv.flake.nix
