@@ -94,12 +94,17 @@ class PaidByUser {
 @JsonSerializable()
 class SplitWith {
   final String type;
-  final List<int> users;
+  @JsonKey(fromJson: _usersFromJson)
+  final List<dynamic> users;
 
   SplitWith({required this.type, required this.users});
 
   factory SplitWith.fromJson(Map<String, dynamic> json) =>
       _$SplitWithFromJson(json);
+
+  static List<dynamic> _usersFromJson(List<dynamic>? json) {
+    return json ?? [];
+  }
 }
 
 @JsonSerializable()
@@ -212,6 +217,7 @@ class PlaceBlock extends Block {
   final String? startTime;
   final String? endTime;
   final String? description;
+  final TextContainer? text;
 
   PlaceBlock({
     required this.place,
@@ -219,6 +225,7 @@ class PlaceBlock extends Block {
     required this.startTime,
     required this.endTime,
     required this.description,
+    this.text,
     super.imageKeys,
     super.price,
     super.expenseId,

@@ -38,6 +38,7 @@ class TripPageState extends State<TripPage> {
   Map<DateTime, List<PlaceBlock>> hotelsByDate = {};
   Map<DateTime, List<TransitBlock>> transitByDate = {};
   Map<int, Expense> expensesById = {};
+  List<Section> _unscheduledSections = [];
   bool _isLoading = true;
   bool _isRefreshing = false;
   DateTime? _lastFetchTime;
@@ -132,14 +133,22 @@ class TripPageState extends State<TripPage> {
         .toList()
       ..sort();
 
+    // Collect unscheduled sections (those without a date, with non-empty blocks)
+    final unscheduled = fetchedPlan.tripPlan.itinerary.sections
+        .where((s) => s.date == null && s.blocks.isNotEmpty)
+        .toList();
+
     final mostRelevantDayIndex = _findMostRelevantDayIndex(dates);
-    final initialPage = mostRelevantDayIndex >= 0 ? mostRelevantDayIndex : 0;
+    // Offset by unscheduled sections count
+    final initialPage = unscheduled.length +
+        (mostRelevantDayIndex >= 0 ? mostRelevantDayIndex : 0);
 
     setState(() {
       flightsByDate = _getFlightsByDate(fetchedPlan);
       hotelsByDate = _getHotelsByDate(fetchedPlan);
       transitByDate = _getTransitByDate(fetchedPlan);
       expensesById = _getExpensesById(fetchedPlan);
+      _unscheduledSections = unscheduled;
       plan = fetchedPlan;
       _isLoading = false;
       _currentPage = initialPage;
@@ -233,6 +242,7 @@ class TripPageState extends State<TripPage> {
 
     final dates = _getSortedDates();
     final pm = _getPlaceMetadataMap(plan!.resources.placeMetadata);
+    final totalPages = _unscheduledSections.length + dates.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -331,6 +341,7 @@ class TripPageState extends State<TripPage> {
                 child: CalendarStrip(
                   dates: dates,
                   selectedIndex: _currentPage,
+                  unscheduledSections: _unscheduledSections,
                   scrollController: _calendarScrollController,
                   onDateSelected: (index) {
                     _pageController.animateToPage(
@@ -351,10 +362,24 @@ class TripPageState extends State<TripPage> {
           setState(() => _currentPage = page);
           _scrollCalendarToIndex(page);
         },
-        itemCount: dates.length,
+        itemCount: totalPages,
         key: const PageStorageKey<String>('trip-page-view'),
         itemBuilder: (context, index) {
-          final date = dates[index];
+          // Unscheduled sections come first
+          if (index < _unscheduledSections.length) {
+            final section = _unscheduledSections[index];
+            return UnscheduledSectionView(
+              key: ValueKey('unscheduled-${section.heading}'),
+              section: section,
+              placeMetadata: pm,
+              expensesById: expensesById,
+              onRefresh: () => _fetchTripData(),
+            );
+          }
+
+          // Dated sections
+          final dateIndex = index - _unscheduledSections.length;
+          final date = dates[dateIndex];
           final section = plan!.tripPlan.itinerary.sections.firstWhere(
             (s) {
               String formattedDate = DateFormat("yyyy-MM-dd").format(date);
@@ -775,7 +800,159 @@ class _SectionLabel extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CalendarStrip
+// UnscheduledSectionView — displays sections without a date (wishlists, etc.)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class UnscheduledSectionView extends StatefulWidget {
+  final Section section;
+  final Map<String, PlaceMetadata> placeMetadata;
+  final Map<int, Expense> expensesById;
+  final Future<void> Function()? onRefresh;
+
+  const UnscheduledSectionView({
+    super.key,
+    required this.section,
+    required this.placeMetadata,
+    required this.expensesById,
+    this.onRefresh,
+  });
+
+  @override
+  State<UnscheduledSectionView> createState() =>
+      _UnscheduledSectionViewState();
+}
+
+class _UnscheduledSectionViewState extends State<UnscheduledSectionView>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  IconData _getSectionIcon(String heading) {
+    final h = heading.toLowerCase();
+    if (h.contains('flight')) return Icons.flight;
+    if (h.contains('hotel') || h.contains('lodging')) return Icons.hotel;
+    if (h.contains('transit')) return Icons.directions_transit;
+    if (h.contains('suggestion')) return Icons.lightbulb_outline;
+    if (h.contains('place') || h.contains('visit')) return Icons.explore;
+    return Icons.list;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final theme = Theme.of(context);
+
+    return RefreshIndicator(
+      onRefresh: widget.onRefresh ?? () => Future.value(),
+      child: ListView(
+        key: PageStorageKey('unscheduled-${widget.section.heading}'),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    _getSectionIcon(widget.section.heading),
+                    color: theme.colorScheme.onSecondaryContainer,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.section.heading,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        '${widget.section.blocks.length} items',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (widget.section.text != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: TextContainerWidget(
+                  textContainer: widget.section.text!),
+            ),
+          ...widget.section.blocks.map((b) {
+            if (b is PlaceBlock) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: PlaceBlockWidget(
+                  placeBlock: b,
+                  metadata: widget.placeMetadata[b.place.placeId],
+                  expense: widget.expensesById[b.expenseId],
+                ),
+              );
+            }
+            if (b is FlightBlock) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: FlightBlockWidget(
+                  flightBlock: b,
+                  initiallyExpanded: false,
+                  expense: widget.expensesById[b.expenseId],
+                ),
+              );
+            }
+            if (b is TransitBlock) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: TransitBlockWidget(
+                  transitBlock: b,
+                  transitType: _getTransitType(b.type),
+                  initiallyExpanded: false,
+                  expense: widget.expensesById[b.expenseId],
+                ),
+              );
+            }
+            if (b is NoteBlock) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: NoteBlockWidget(block: b),
+              );
+            }
+            return const SizedBox.shrink();
+          }),
+        ],
+      ),
+    );
+  }
+
+  TransitType _getTransitType(String type) {
+    switch (type) {
+      case 'train':
+        return TransitType.train;
+      case 'bus':
+        return TransitType.bus;
+      default:
+        return TransitType.other;
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CalendarStrip — with support for unscheduled section pills
 // ─────────────────────────────────────────────────────────────────────────────
 
 class CalendarStrip extends StatelessWidget {
@@ -783,6 +960,7 @@ class CalendarStrip extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onDateSelected;
   final ScrollController? scrollController;
+  final List<Section> unscheduledSections;
 
   const CalendarStrip({
     super.key,
@@ -790,24 +968,119 @@ class CalendarStrip extends StatelessWidget {
     required this.selectedIndex,
     required this.onDateSelected,
     this.scrollController,
+    this.unscheduledSections = const [],
   });
+
+  IconData _getSectionIcon(String heading) {
+    final h = heading.toLowerCase();
+    if (h.contains('flight')) return Icons.flight;
+    if (h.contains('hotel') || h.contains('lodging')) return Icons.hotel;
+    if (h.contains('transit')) return Icons.directions_transit;
+    if (h.contains('suggestion')) return Icons.lightbulb_outline;
+    if (h.contains('place') || h.contains('visit')) return Icons.explore;
+    return Icons.list;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final totalCount = unscheduledSections.length + dates.length;
+
     return SizedBox(
       height: 60,
       child: ListView.builder(
         controller: scrollController,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: dates.length,
+        itemCount: totalCount,
         itemBuilder: (context, index) {
+          if (index < unscheduledSections.length) {
+            final section = unscheduledSections[index];
+            return _SectionPill(
+              icon: _getSectionIcon(section.heading),
+              label: _abbreviateHeading(section.heading),
+              isSelected: index == selectedIndex,
+              onTap: () => onDateSelected(index),
+            );
+          }
+          final dateIndex = index - unscheduledSections.length;
           return CalendarDay(
-            date: dates[index],
+            date: dates[dateIndex],
             isSelected: index == selectedIndex,
             onTap: () => onDateSelected(index),
           );
         },
+      ),
+    );
+  }
+
+  String _abbreviateHeading(String heading) {
+    if (heading.length <= 8) return heading;
+    // Take first word
+    final words = heading.split(' ');
+    if (words.first.length <= 8) return words.first;
+    return '${heading.substring(0, 6)}..';
+  }
+}
+
+class _SectionPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _SectionPill({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? theme.colorScheme.secondaryContainer
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected
+                  ? theme.colorScheme.secondary
+                  : theme.colorScheme.outlineVariant,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: isSelected
+                    ? theme.colorScheme.onSecondaryContainer
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: isSelected
+                      ? theme.colorScheme.onSecondaryContainer
+                      : theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 9,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

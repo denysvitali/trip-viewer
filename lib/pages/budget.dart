@@ -9,26 +9,25 @@ class BudgetPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // Group expenses by currency
+    final expensesByCurrency = <String, List<Expense>>{};
+    for (final expense in budget.expenses) {
+      final currency = expense.amount.currencyCode ?? 'USD';
+      expensesByCurrency.putIfAbsent(currency, () => []).add(expense);
+    }
+
     // Group expenses by category
     final expensesByCategory = <String, List<Expense>>{};
     for (final expense in budget.expenses) {
       final category = expense.category ?? 'Uncategorized';
-      if (!expensesByCategory.containsKey(category)) {
-        expensesByCategory[category] = [];
-      }
-      expensesByCategory[category]!.add(expense);
+      expensesByCategory.putIfAbsent(category, () => []).add(expense);
     }
-
-    // Calculate total spent amount
-    double totalSpent = budget.expenses
-        .fold(0, (total, expense) => total + expense.amount.amount);
-
-    // Calculate remaining budget
-    double remainingBudget = budget.amount.amount - totalSpent;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Budget Dashboard'),
+        title: const Text('Budget'),
         actions: [
           IconButton(
             icon: const Icon(Icons.list),
@@ -36,7 +35,8 @@ class BudgetPage extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ExpensesPage(expenses: budget.expenses),
+                  builder: (context) =>
+                      ExpensesPage(expenses: budget.expenses),
                 ),
               );
             },
@@ -47,184 +47,230 @@ class BudgetPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Budget summary card
-          Card(
-            elevation: 2,
-            margin: const EdgeInsets.only(bottom: 16),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Budget Summary',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildBudgetRow(
-                    context,
-                    'Total Budget',
-                    budget.amount.format(),
-                  ),
-                  _buildBudgetRow(
-                    context,
-                    'Spent',
-                    '${budget.amount.currencyCode} ${totalSpent.toStringAsFixed(2)}',
-                    valueColor: Colors.red,
-                  ),
-                  _buildBudgetRow(
-                    context,
-                    'Remaining',
-                    '${budget.amount.currencyCode} ${remainingBudget.toStringAsFixed(2)}',
-                    valueColor:
-                        remainingBudget >= 0 ? Colors.green : Colors.red,
-                  ),
-                ],
-              ),
-            ),
-          ),
+          // Spending summary by currency
+          _buildSpendingSummary(theme, expensesByCurrency),
+          const SizedBox(height: 16),
 
           // Spending by category
           Card(
-            elevation: 2,
-            margin: const EdgeInsets.only(bottom: 16),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Spending by Category',
-                    style: Theme.of(context).textTheme.titleLarge,
+                    'By Category',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   for (final category in expensesByCategory.keys)
                     _buildCategoryRow(
                       context,
+                      theme,
                       category,
                       expensesByCategory[category]!,
-                      budget.amount.currencyCode ?? '',
                     ),
                 ],
               ),
             ),
           ),
-
-          // Payments section if available
-          if (budget.payments.isNotEmpty)
-            Card(
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Payments',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text('Payment tracking functionality coming soon'),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: Add expense entry dialog
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Add expense feature coming soon')),
-          );
-        },
-        tooltip: 'Add Expense',
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-
-  Widget _buildBudgetRow(BuildContext context, String label, String value,
-      {Color? valueColor}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: valueColor,
-                ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildCategoryRow(
-    BuildContext context,
-    String category,
-    List<Expense> expenses,
-    String currencyCode,
-  ) {
-    double total =
-        expenses.fold(0, (total, expense) => total + expense.amount.amount);
-
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ExpensesPage(
-              expenses: expenses,
-              title: 'Expenses: $category',
+  Widget _buildSpendingSummary(
+      ThemeData theme, Map<String, List<Expense>> expensesByCurrency) {
+    if (expensesByCurrency.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Column(
+              children: [
+                Icon(Icons.account_balance_wallet_outlined,
+                    size: 48,
+                    color: theme.colorScheme.onSurfaceVariant.withAlpha(120)),
+                const SizedBox(height: 12),
+                Text('No expenses recorded',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    )),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      );
+    }
+
+    return Card(
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              child: Icon(_getCategoryIcon(category)),
+            Text(
+              'Total Spent',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 12),
+            for (final entry in expensesByCurrency.entries) ...[
+              _buildCurrencyTotal(theme, entry.key, entry.value),
+              if (entry.key != expensesByCurrency.keys.last)
+                const SizedBox(height: 8),
+            ],
+            if (budget.amount.amount > 0) ...[
+              const Divider(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  Text('Budget', style: theme.textTheme.bodyMedium),
                   Text(
-                    category,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  Text(
-                    '${expenses.length} item${expenses.length != 1 ? 's' : ''}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    budget.amount.format(),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
-            ),
-            Text(
-              '$currencyCode ${total.toStringAsFixed(2)}',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  // Helper function to get an icon based on category
+  Widget _buildCurrencyTotal(
+      ThemeData theme, String currency, List<Expense> expenses) {
+    final total =
+        expenses.fold<double>(0, (sum, e) => sum + e.amount.amount);
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer.withAlpha(120),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                currency,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onPrimaryContainer,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${expenses.length} expense${expenses.length != 1 ? 's' : ''}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        Text(
+          '$currency ${total.toStringAsFixed(2)}',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryRow(
+    BuildContext context,
+    ThemeData theme,
+    String category,
+    List<Expense> expenses,
+  ) {
+    // Group by currency within category
+    final byCurrency = <String, double>{};
+    for (final e in expenses) {
+      final curr = e.amount.currencyCode ?? 'USD';
+      byCurrency[curr] = (byCurrency[curr] ?? 0) + e.amount.amount;
+    }
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ExpensesPage(
+              expenses: expenses,
+              title: category,
+            ),
+          ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.secondaryContainer.withAlpha(120),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                _getCategoryIcon(category),
+                size: 20,
+                color: theme.colorScheme.onSecondaryContainer,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    category,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    '${expenses.length} item${expenses.length != 1 ? 's' : ''}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (final entry in byCurrency.entries)
+                  Text(
+                    '${entry.key} ${entry.value.toStringAsFixed(2)}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right,
+                size: 18, color: theme.colorScheme.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+
   IconData _getCategoryIcon(String category) {
     switch (category.toLowerCase()) {
       case 'flights':
@@ -238,7 +284,7 @@ class BudgetPage extends StatelessWidget {
       case 'transport':
         return Icons.directions_transit;
       default:
-        return Icons.receipt_long; // Default icon
+        return Icons.receipt_long;
     }
   }
 }

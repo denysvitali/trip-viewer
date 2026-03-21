@@ -3,6 +3,7 @@ import 'package:wanderlog_alt/models/trip_plan.dart';
 import 'package:wanderlog_alt/theme/app_theme.dart';
 import 'package:wanderlog_alt/widgets/blocks/generic_block.dart';
 import 'package:wanderlog_alt/widgets/place_image.dart';
+import 'package:wanderlog_alt/widgets/text_container_widget.dart';
 
 class PlaceBlockWidget extends StatefulWidget {
   final PlaceBlock placeBlock;
@@ -56,11 +57,19 @@ class _PlaceBlockWidgetState extends State<PlaceBlockWidget> {
                   const SizedBox(height: 6),
                   _buildRating(theme),
                 ],
-                if (widget.placeBlock.description != null) ...[
+                // User's rich text note (TextContainer)
+                if (_hasPlaceText()) ...[
+                  const SizedBox(height: 8),
+                  _buildPlaceText(theme),
+                ],
+                // Fallback: plain description string
+                if (!_hasPlaceText() &&
+                    widget.placeBlock.description != null) ...[
                   const SizedBox(height: 8),
                   _buildExpandableDescription(
                       theme, widget.placeBlock.description!),
                 ],
+                // Metadata description (from Google/generated)
                 if (widget.metadata?.description != null ||
                     widget.metadata?.generatedDescription != null) ...[
                   const SizedBox(height: 8),
@@ -134,6 +143,18 @@ class _PlaceBlockWidgetState extends State<PlaceBlockWidget> {
         ],
       ],
     );
+  }
+
+  bool _hasPlaceText() {
+    final text = widget.placeBlock.text;
+    if (text == null) return false;
+    final content =
+        text.ops.map((op) => op.insert).join().trim();
+    return content.isNotEmpty;
+  }
+
+  Widget _buildPlaceText(ThemeData theme) {
+    return TextContainerWidget(textContainer: widget.placeBlock.text!);
   }
 
   Widget _buildRating(ThemeData theme) {
