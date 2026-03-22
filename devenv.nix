@@ -8,6 +8,7 @@
   ];
 
   android.enable = false;
+  dotenv.disableHint = true;
 
   env = {
     DART_SDK = "${pkgs.flutter.out}/bin/cache/dart-sdk";

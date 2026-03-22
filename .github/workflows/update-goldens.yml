@@ -17,8 +17,16 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v30
 
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: devenv
+
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
       - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+        run: nix profile install --accept-flake-config github:cachix/devenv/latest
 
       - name: Cache pub dependencies
         uses: actions/cache@v5

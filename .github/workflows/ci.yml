@@ -34,9 +34,6 @@ jobs:
   analyze:
     name: Analyze Code
     runs-on: self-hosted
-    concurrency:
-      group: analyze-${{ github.ref }}
-      cancel-in-progress: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -44,8 +41,16 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v30
 
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: devenv
+
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
       - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+        run: nix profile install --accept-flake-config github:cachix/devenv/latest
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -73,9 +78,6 @@ jobs:
   test:
     name: Run Tests
     runs-on: self-hosted
-    concurrency:
-      group: test-${{ github.ref }}
-      cancel-in-progress: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -83,8 +85,16 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v30
 
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: devenv
+
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
       - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+        run: nix profile install --accept-flake-config github:cachix/devenv/latest
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -113,9 +123,6 @@ jobs:
     name: Build Debug APK
     runs-on: self-hosted
     timeout-minutes: 30
-    concurrency:
-      group: build-debug-${{ github.ref }}
-      cancel-in-progress: true
     if: |
       (github.event_name != 'workflow_dispatch' &&
        !startsWith(github.ref, 'refs/tags/v') &&
@@ -135,8 +142,16 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v30
 
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: devenv
+
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
       - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+        run: nix profile install --accept-flake-config github:cachix/devenv/latest
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -194,9 +209,6 @@ jobs:
     name: Build Release
     runs-on: self-hosted
     timeout-minutes: 30
-    concurrency:
-      group: build-release-${{ github.ref }}
-      cancel-in-progress: true
     if: |
       (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
       (github.event_name == 'workflow_dispatch' &&
@@ -215,8 +227,16 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v30
 
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: devenv
+
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
       - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+        run: nix profile install --accept-flake-config github:cachix/devenv/latest
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -317,9 +337,6 @@ jobs:
     name: Build Web
     runs-on: self-hosted
     if: github.ref == 'refs/heads/master'
-    concurrency:
-      group: build-web-${{ github.ref }}
-      cancel-in-progress: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -327,8 +344,16 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v30
 
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: devenv
+
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
       - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+        run: nix profile install --accept-flake-config github:cachix/devenv/latest
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -365,9 +390,6 @@ jobs:
     needs: build-web
     runs-on: self-hosted
     if: github.ref == 'refs/heads/master'
-    concurrency:
-      group: deploy-web-${{ github.ref }}
-      cancel-in-progress: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
