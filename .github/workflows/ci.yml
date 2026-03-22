@@ -31,8 +31,8 @@ permissions:
   id-token: write
 
 jobs:
-  analyze:
-    name: Analyze Code
+  check:
+    name: Analyze & Test
     runs-on: self-hosted
     steps:
       - name: Checkout repository
@@ -41,15 +41,8 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v30
 
-      - name: Cache Nix store
-        uses: DeterminateSystems/magic-nix-cache-action@main
-        with:
-          use-flakehub: false
-
       - name: Install devenv
-        run: |
-          nix profile remove devenv 2>/dev/null || true
-          nix profile install --accept-flake-config github:cachix/devenv/latest
+        run: nix profile install nixpkgs#devenv
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -74,61 +67,21 @@ jobs:
       - name: Analyze code
         run: devenv shell -- flutter analyze --no-fatal-infos --no-fatal-warnings
 
-  test:
-    name: Run Tests
-    needs: analyze
-    runs-on: self-hosted
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v30
-
-      - name: Cache Nix store
-        uses: DeterminateSystems/magic-nix-cache-action@main
-        with:
-          use-flakehub: false
-
-      - name: Install devenv
-        run: |
-          nix profile remove devenv 2>/dev/null || true
-          nix profile install --accept-flake-config github:cachix/devenv/latest
-
-      - name: Cache pub dependencies
-        uses: actions/cache@v5
-        with:
-          path: ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
-
-      - name: Setup .env
-        run: |
-          echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
-
-      - name: Get dependencies
-        run: devenv shell -- flutter pub get
-
-      - name: Generate code
-        run: |
-          devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
-          devenv shell -- flutter gen-l10n
-
       - name: Run tests
         run: devenv shell -- flutter test
 
   build-debug:
     name: Build Debug APK
-    needs: [analyze, test]
+    needs: check
     runs-on: self-hosted
     timeout-minutes: 30
     if: |
-      (github.event_name != 'workflow_dispatch' &&
-       !startsWith(github.ref, 'refs/tags/v') &&
-       github.ref != 'refs/heads/master') ||
-      github.event.inputs.build_type == 'debug' ||
-      github.event.inputs.build_type == 'both'
+      !cancelled() && !failure() &&
+      ((github.event_name != 'workflow_dispatch' &&
+        !startsWith(github.ref, 'refs/tags/v') &&
+        github.ref != 'refs/heads/master') ||
+       github.event.inputs.build_type == 'debug' ||
+       github.event.inputs.build_type == 'both')
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -142,15 +95,8 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v30
 
-      - name: Cache Nix store
-        uses: DeterminateSystems/magic-nix-cache-action@main
-        with:
-          use-flakehub: false
-
       - name: Install devenv
-        run: |
-          nix profile remove devenv 2>/dev/null || true
-          nix profile install --accept-flake-config github:cachix/devenv/latest
+        run: nix profile install nixpkgs#devenv
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -206,14 +152,15 @@ jobs:
 
   build-release:
     name: Build Release
-    needs: [analyze, test]
+    needs: [check, build-debug]
     runs-on: self-hosted
     timeout-minutes: 30
     if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
-      (github.event_name == 'workflow_dispatch' &&
-       (github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both')) ||
-      startsWith(github.ref, 'refs/tags/v')
+      !cancelled() && !failure() &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/master') ||
+       (github.event_name == 'workflow_dispatch' &&
+        (github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both')) ||
+       startsWith(github.ref, 'refs/tags/v'))
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -227,15 +174,8 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v30
 
-      - name: Cache Nix store
-        uses: DeterminateSystems/magic-nix-cache-action@main
-        with:
-          use-flakehub: false
-
       - name: Install devenv
-        run: |
-          nix profile remove devenv 2>/dev/null || true
-          nix profile install --accept-flake-config github:cachix/devenv/latest
+        run: nix profile install nixpkgs#devenv
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -334,9 +274,11 @@ jobs:
 
   build-web:
     name: Build Web
-    needs: [analyze, test]
+    needs: [check, build-release]
     runs-on: self-hosted
-    if: github.ref == 'refs/heads/master'
+    if: |
+      !cancelled() && !failure() &&
+      github.ref == 'refs/heads/master'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -344,15 +286,8 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v30
 
-      - name: Cache Nix store
-        uses: DeterminateSystems/magic-nix-cache-action@main
-        with:
-          use-flakehub: false
-
       - name: Install devenv
-        run: |
-          nix profile remove devenv 2>/dev/null || true
-          nix profile install --accept-flake-config github:cachix/devenv/latest
+        run: nix profile install nixpkgs#devenv
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
