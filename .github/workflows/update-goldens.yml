@@ -17,11 +17,6 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v30
 
-      - name: Setup Cachix
-        uses: cachix/cachix-action@v15
-        with:
-          name: devenv
-
       - name: Cache Nix store
         uses: DeterminateSystems/magic-nix-cache-action@main
 
