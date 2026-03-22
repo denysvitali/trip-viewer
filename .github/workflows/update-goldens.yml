@@ -19,9 +19,13 @@ jobs:
 
       - name: Cache Nix store
         uses: DeterminateSystems/magic-nix-cache-action@main
+        with:
+          use-flakehub: false
 
       - name: Install devenv
-        run: nix profile install --accept-flake-config github:cachix/devenv/latest
+        run: |
+          nix profile remove '.*devenv.*' 2>/dev/null || true
+          nix profile install --accept-flake-config github:cachix/devenv/latest
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
