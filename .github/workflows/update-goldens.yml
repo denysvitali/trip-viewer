@@ -24,7 +24,7 @@ jobs:
 
       - name: Install devenv
         run: |
-          nix profile remove '.*devenv.*' 2>/dev/null || true
+          nix profile remove devenv 2>/dev/null || true
           nix profile install --accept-flake-config github:cachix/devenv/latest
 
       - name: Cache pub dependencies
