@@ -42,7 +42,7 @@ jobs:
         uses: cachix/install-nix-action@v30
 
       - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+        run: nix profile install --accept-flake-config github:cachix/devenv/latest
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -96,7 +96,7 @@ jobs:
         uses: cachix/install-nix-action@v30
 
       - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+        run: nix profile install --accept-flake-config github:cachix/devenv/latest
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -175,7 +175,7 @@ jobs:
         uses: cachix/install-nix-action@v30
 
       - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+        run: nix profile install --accept-flake-config github:cachix/devenv/latest
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -287,7 +287,7 @@ jobs:
         uses: cachix/install-nix-action@v30
 
       - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+        run: nix profile install --accept-flake-config github:cachix/devenv/latest
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
