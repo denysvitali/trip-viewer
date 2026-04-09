@@ -15,6 +15,12 @@
   };
 
   enterShell = ''
+    # Fix missing execute permission on flutter_tester (Nix packaging issue)
+    FLUTTER_TESTER="${pkgs.flutter.out}/bin/cache/artifacts/engine/linux-x64/flutter_tester"
+    if [ -f "$FLUTTER_TESTER" ] && [ ! -x "$FLUTTER_TESTER" ]; then
+      chmod +x "$FLUTTER_TESTER"
+    fi
+
     echo "Flutter version:"
     flutter --version
   '';
