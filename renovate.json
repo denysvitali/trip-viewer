@@ -1,0 +1,51 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "separateMajorMinor": false,
+  "separateMinorPatch": false,
+  "packageRules": [
+    {
+      "description": "Group Flutter and Dart package updates from pubspec.yaml.",
+      "matchManagers": [
+        "pub"
+      ],
+      "groupName": "Flutter dependencies",
+      "groupSlug": "flutter-dependencies",
+      "commitMessageTopic": "Flutter dependencies",
+      "addLabels": [
+        "dependencies",
+        "flutter"
+      ]
+    },
+    {
+      "description": "Group GitHub Actions updates from workflow files.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "GitHub Actions",
+      "groupSlug": "github-actions",
+      "commitMessageTopic": "GitHub Actions",
+      "addLabels": [
+        "dependencies",
+        "github-actions"
+      ]
+    },
+    {
+      "description": "Group Android Gradle plugin, Kotlin plugin, and Gradle wrapper updates.",
+      "matchManagers": [
+        "gradle",
+        "gradle-wrapper"
+      ],
+      "groupName": "Android Gradle dependencies",
+      "groupSlug": "android-gradle-dependencies",
+      "commitMessageTopic": "Android Gradle dependencies",
+      "addLabels": [
+        "dependencies",
+        "android",
+        "gradle"
+      ]
+    }
+  ]
+}
