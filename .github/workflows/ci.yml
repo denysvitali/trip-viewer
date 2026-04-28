@@ -39,7 +39,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v30
+        uses: cachix/install-nix-action@v31
 
       - name: Install devenv
         run: |
@@ -98,7 +98,7 @@ jobs:
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v30
+        uses: cachix/install-nix-action@v31
 
       - name: Install devenv
         run: |
@@ -115,7 +115,7 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -182,7 +182,7 @@ jobs:
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v30
+        uses: cachix/install-nix-action@v31
 
       - name: Install devenv
         run: |
@@ -199,7 +199,7 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -276,7 +276,7 @@ jobs:
           echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.release_version.outputs.RELEASE_TAG }}
           name: Wanderlog Alt ${{ steps.release_version.outputs.RELEASE_TAG }}
@@ -299,7 +299,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v30
+        uses: cachix/install-nix-action@v31
 
       - name: Install devenv
         run: |
@@ -355,13 +355,13 @@ jobs:
           path: build/web
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload to GitHub Pages
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: build/web
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
