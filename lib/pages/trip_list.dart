@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:trip_viewer/models/saved_trip.dart';
 import 'package:trip_viewer/services/trip_storage_service.dart';
+import 'package:trip_viewer/services/trip_provider_service.dart';
 import 'package:trip_viewer/pages/trip.dart';
 import 'package:trip_viewer/widgets/place_image.dart';
 
@@ -36,73 +37,98 @@ class _TripListPageState extends State<TripListPage> {
     }
   }
 
-  /// Parses a trip URL or raw trip ID into just the trip ID
-  String _parseTripId(String input) {
-    input = input.trim();
-    // Handle supported shared trip URLs
-    final uri = Uri.tryParse(input);
-    if (uri != null && uri.host.contains('wanderlog.com')) {
-      final segments = uri.pathSegments;
-      // /view/{tripId}/... or /plan/{tripId}/...
-      if (segments.length >= 2) {
-        return segments[1];
-      }
-    }
-    return input;
-  }
-
   Future<void> _showAddTripDialog() async {
     final controller = TextEditingController();
-    final tripId = await showDialog<String>(
+    var selectedProvider = TripProvider.wanderlog;
+    final reference = await showDialog<TripImportReference>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Trip'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Enter a trip ID or paste a trip URL',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: const InputDecoration(
-                hintText: 'e.g. vevtulccsc or a trip URL',
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Import Trip'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DropdownButtonFormField<TripProvider>(
+                value: selectedProvider,
+                decoration: const InputDecoration(labelText: 'Provider'),
+                items: TripProviderService.providers
+                    .map(
+                      (client) => DropdownMenuItem(
+                        value: client.provider,
+                        child: Text(client.displayName),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (provider) {
+                  if (provider == null) return;
+                  setDialogState(() => selectedProvider = provider);
+                },
               ),
-              onSubmitted: (value) {
-                if (value.isNotEmpty) Navigator.pop(context, value);
+              const SizedBox(height: 12),
+              Text(
+                'Enter a trip ID or paste a trip URL',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'e.g. vevtulccsc or a trip URL',
+                ),
+                onSubmitted: (value) {
+                  if (value.isEmpty) return;
+                  Navigator.pop(
+                    context,
+                    TripProviderService.parseImport(
+                      provider: selectedProvider,
+                      input: value,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (controller.text.isEmpty) return;
+                Navigator.pop(
+                  context,
+                  TripProviderService.parseImport(
+                    provider: selectedProvider,
+                    input: controller.text,
+                  ),
+                );
               },
+              child: const Text('Import'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                Navigator.pop(context, controller.text);
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
       ),
     );
 
-    if (tripId != null && tripId.isNotEmpty) {
-      final parsedId = _parseTripId(tripId);
-      await TripStorageService.addTrip(parsedId);
+    if (reference != null && reference.tripId.isNotEmpty) {
+      await TripStorageService.addTrip(
+        reference.tripId,
+        provider: reference.provider,
+      );
       await _loadTrips();
       if (mounted) {
-        _openTrip(_trips.firstWhere((t) => t.tripId == parsedId));
+        _openTrip(
+          _trips.firstWhere(
+            (t) =>
+                t.provider == reference.provider &&
+                t.tripId == reference.tripId,
+          ),
+        );
       }
     }
   }
@@ -112,6 +138,7 @@ class _TripListPageState extends State<TripListPage> {
       context,
       MaterialPageRoute(
         builder: (context) => TripPage(
+          provider: trip.provider,
           tripId: trip.tripId,
           tripTitle: trip.title,
         ),
@@ -125,7 +152,8 @@ class _TripListPageState extends State<TripListPage> {
       builder: (context) => AlertDialog(
         title: const Text('Remove Trip'),
         content: Text(
-            'Remove "${trip.title ?? trip.tripId}" and its cached data?'),
+          'Remove "${trip.title ?? trip.tripId}" and its cached data?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -143,7 +171,7 @@ class _TripListPageState extends State<TripListPage> {
     );
 
     if (confirmed == true) {
-      await TripStorageService.removeTrip(trip.tripId);
+      await TripStorageService.removeTrip(trip.provider, trip.tripId);
       await _loadTrips();
     }
   }
@@ -165,12 +193,12 @@ class _TripListPageState extends State<TripListPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _trips.isEmpty
-              ? _buildEmptyState()
-              : _buildTripList(),
+          ? _buildEmptyState()
+          : _buildTripList(),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddTripDialog,
         icon: const Icon(Icons.add),
-        label: const Text('Add Trip'),
+        label: const Text('Import Trip'),
       ),
     );
   }
@@ -194,17 +222,17 @@ class _TripListPageState extends State<TripListPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Add your trip ID to get started',
+              'Import your first trip to get started',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: _showAddTripDialog,
               icon: const Icon(Icons.add),
-              label: const Text('Add your first trip'),
+              label: const Text('Import your first trip'),
             ),
           ],
         ),
@@ -338,10 +366,11 @@ class _TripCard extends StatelessWidget {
                                   padding: const EdgeInsets.only(top: 2),
                                   child: Text(
                                     _formatDateRange(
-                                        trip.startDate!, trip.endDate!),
+                                      trip.startDate!,
+                                      trip.endDate!,
+                                    ),
                                     style: theme.textTheme.bodySmall?.copyWith(
-                                      color:
-                                          theme.colorScheme.onSurfaceVariant,
+                                      color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                 ),
@@ -375,11 +404,18 @@ class _TripCard extends StatelessWidget {
                             icon: Icons.place_outlined,
                             label: '${trip.placeCount} places',
                           ),
+                        if (trip.placeCount != null && trip.placeCount! > 0)
+                          const SizedBox(width: 8),
+                        _InfoChip(
+                          icon: Icons.cloud_outlined,
+                          label: trip.provider.displayName,
+                        ),
                         const Spacer(),
                         Text(
                           timeago.format(
                             DateTime.fromMillisecondsSinceEpoch(
-                                trip.lastAccessedAt),
+                              trip.lastAccessedAt,
+                            ),
                           ),
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,

@@ -19,9 +19,14 @@ class TripStorageService {
     return trips;
   }
 
-  static Future<SavedTrip> addTrip(String tripId) async {
+  static Future<SavedTrip> addTrip(
+    String tripId, {
+    TripProvider provider = TripProvider.wanderlog,
+  }) async {
     final trips = await getSavedTrips();
-    final existing = trips.where((t) => t.tripId == tripId).firstOrNull;
+    final existing = trips
+        .where((t) => t.provider == provider && t.tripId == tripId)
+        .firstOrNull;
     if (existing != null) {
       existing.lastAccessedAt = DateTime.now().millisecondsSinceEpoch;
       await _saveTrips(trips);
@@ -30,6 +35,7 @@ class TripStorageService {
 
     final now = DateTime.now().millisecondsSinceEpoch;
     final trip = SavedTrip(
+      provider: provider,
       tripId: tripId,
       addedAt: now,
       lastAccessedAt: now,
@@ -39,17 +45,22 @@ class TripStorageService {
     return trip;
   }
 
-  static Future<void> removeTrip(String tripId) async {
+  static Future<void> removeTrip(TripProvider provider, String tripId) async {
     final trips = await getSavedTrips();
-    trips.removeWhere((t) => t.tripId == tripId);
+    trips.removeWhere((t) => t.provider == provider && t.tripId == tripId);
     await _saveTrips(trips);
-    await TripCacheService.deleteCachedTrip(tripId);
+    await TripCacheService.deleteCachedTrip(provider, tripId);
   }
 
   static Future<void> updateTripMetadata(
-      String tripId, TripPlanResponse data) async {
+    TripProvider provider,
+    String tripId,
+    TripPlanResponse data,
+  ) async {
     final trips = await getSavedTrips();
-    final trip = trips.where((t) => t.tripId == tripId).firstOrNull;
+    final trip = trips
+        .where((t) => t.provider == provider && t.tripId == tripId)
+        .firstOrNull;
     if (trip == null) return;
 
     trip.title = data.tripPlan.title;
@@ -93,9 +104,14 @@ class TripStorageService {
     await _saveTrips(trips);
   }
 
-  static Future<void> updateLastAccessed(String tripId) async {
+  static Future<void> updateLastAccessed(
+    TripProvider provider,
+    String tripId,
+  ) async {
     final trips = await getSavedTrips();
-    final trip = trips.where((t) => t.tripId == tripId).firstOrNull;
+    final trip = trips
+        .where((t) => t.provider == provider && t.tripId == tripId)
+        .firstOrNull;
     if (trip == null) return;
     trip.lastAccessedAt = DateTime.now().millisecondsSinceEpoch;
     await _saveTrips(trips);
@@ -104,11 +120,11 @@ class TripStorageService {
   /// Migrate from legacy single-trip storage to multi-trip
   static Future<bool> migrateLegacyTripId() async {
     final prefs = await SharedPreferences.getInstance();
-    final legacyId = prefs.getString(_legacyTripIdKey) ??
-        prefs.getString(_legacyTripIdKey2);
+    final legacyId =
+        prefs.getString(_legacyTripIdKey) ?? prefs.getString(_legacyTripIdKey2);
     if (legacyId == null || legacyId.isEmpty) return false;
 
-    await addTrip(legacyId);
+    await addTrip(legacyId, provider: TripProvider.wanderlog);
     await prefs.remove(_legacyTripIdKey);
     await prefs.remove(_legacyTripIdKey2);
     return true;

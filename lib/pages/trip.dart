@@ -1,13 +1,13 @@
-import 'dart:convert';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:trip_viewer/models/saved_trip.dart';
 import 'package:trip_viewer/models/trip_plan.dart';
 import 'package:trip_viewer/services/trip_cache_service.dart';
+import 'package:trip_viewer/services/trip_provider_service.dart';
 import 'package:trip_viewer/services/trip_storage_service.dart';
 import 'package:trip_viewer/widgets/blocks/flight_block.dart';
 import 'package:trip_viewer/widgets/blocks/hotel_block.dart';
@@ -21,16 +21,20 @@ import 'package:trip_viewer/pages/packing_list.dart';
 import 'package:trip_viewer/widgets/text_container_widget.dart';
 
 class TripPage extends StatefulWidget {
+  final TripProvider provider;
   final String tripId;
   final String? tripTitle;
 
-  const TripPage({super.key, required this.tripId, this.tripTitle});
+  const TripPage({
+    super.key,
+    this.provider = TripProvider.wanderlog,
+    required this.tripId,
+    this.tripTitle,
+  });
 
   @override
   State<TripPage> createState() => TripPageState();
 }
-
-const apiUrl = "https://wanderlog.com/api/tripPlans/";
 
 class TripPageState extends State<TripPage> {
   TripPlanResponse? plan;
@@ -63,8 +67,7 @@ class TripPageState extends State<TripPage> {
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
     for (int i = 0; i < dates.length; i++) {
-      final compareDate =
-          DateTime(dates[i].year, dates[i].month, dates[i].day);
+      final compareDate = DateTime(dates[i].year, dates[i].month, dates[i].day);
       if (compareDate.isAtSameMomentAs(todayDate)) return i;
       if (compareDate.isAfter(todayDate)) return i;
     }
@@ -74,14 +77,27 @@ class TripPageState extends State<TripPage> {
   /// Stale-while-revalidate: show cached data immediately, refresh in background
   Future<void> _loadTripWithCache() async {
     try {
-      final cachedData = await TripCacheService.getCachedTrip(widget.tripId);
-      _lastFetchTime =
-          await TripCacheService.getLastFetchTime(widget.tripId);
+      await TripStorageService.updateLastAccessed(
+        widget.provider,
+        widget.tripId,
+      );
+      final cachedData = await TripCacheService.getCachedTrip(
+        widget.provider,
+        widget.tripId,
+      );
+      _lastFetchTime = await TripCacheService.getLastFetchTime(
+        widget.provider,
+        widget.tripId,
+      );
 
       if (cachedData != null) {
         _updateTripData(cachedData);
-        // Background refresh
-        _refreshInBackground();
+        if (await TripCacheService.shouldRefresh(
+          widget.provider,
+          widget.tripId,
+        )) {
+          _refreshInBackground();
+        }
       } else {
         await _fetchTripData();
       }
@@ -106,19 +122,27 @@ class TripPageState extends State<TripPage> {
   Future<void> _fetchTripData({bool silent = false}) async {
     try {
       log("Fetching trip data for ${widget.tripId}");
-      final url = Uri.parse(
-          '$apiUrl/${widget.tripId}?clientSchemaVersion=2');
-      final response = await http.get(url);
-      final tripData = jsonDecode(response.body);
+      final tripData = await TripProviderService.fetchTrip(
+        provider: widget.provider,
+        tripId: widget.tripId,
+      );
 
-      await TripCacheService.cacheTrip(widget.tripId, tripData);
+      await TripCacheService.cacheTrip(
+        widget.provider,
+        widget.tripId,
+        tripData,
+      );
       _lastFetchTime = DateTime.now();
 
       _updateTripData(tripData);
 
       // Update trip metadata for trip list
       if (plan != null) {
-        await TripStorageService.updateTripMetadata(widget.tripId, plan!);
+        await TripStorageService.updateTripMetadata(
+          widget.provider,
+          widget.tripId,
+          plan!,
+        );
       }
     } catch (e) {
       if (!silent) _handleError(e);
@@ -127,11 +151,12 @@ class TripPageState extends State<TripPage> {
 
   void _updateTripData(Map<String, dynamic> tripData) {
     final fetchedPlan = TripPlanResponse.fromJson(tripData);
-    final dates = fetchedPlan.tripPlan.itinerary.sections
-        .where((s) => s.date != null)
-        .map((s) => DateTime.parse(s.date!))
-        .toList()
-      ..sort();
+    final dates =
+        fetchedPlan.tripPlan.itinerary.sections
+            .where((s) => s.date != null)
+            .map((s) => DateTime.parse(s.date!))
+            .toList()
+          ..sort();
 
     // Collect unscheduled sections (those without a date, with non-empty blocks)
     final unscheduled = fetchedPlan.tripPlan.itinerary.sections
@@ -140,7 +165,8 @@ class TripPageState extends State<TripPage> {
 
     final mostRelevantDayIndex = _findMostRelevantDayIndex(dates);
     // Offset by unscheduled sections count
-    final initialPage = unscheduled.length +
+    final initialPage =
+        unscheduled.length +
         (mostRelevantDayIndex >= 0 ? mostRelevantDayIndex : 0);
 
     setState(() {
@@ -169,9 +195,9 @@ class TripPageState extends State<TripPage> {
       log('Failed to load trip data: $e');
     }
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load trip data: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load trip data: $e')));
       setState(() => _isLoading = false);
     }
   }
@@ -179,7 +205,8 @@ class TripPageState extends State<TripPage> {
   void _scrollCalendarToIndex(int index) {
     if (!_calendarScrollController.hasClients) return;
     const itemWidth = 56.0; // 48 width + 8 padding
-    final offset = (index * itemWidth) -
+    final offset =
+        (index * itemWidth) -
         (MediaQuery.of(context).size.width / 2) +
         (itemWidth / 2);
     _calendarScrollController.animateTo(
@@ -192,9 +219,11 @@ class TripPageState extends State<TripPage> {
   List<DateTime> _getSortedDates() {
     Set<DateTime> dateSet = {};
     if (plan != null) {
-      dateSet.addAll(plan!.tripPlan.itinerary.sections
-          .where((s) => s.date != null)
-          .map((s) => DateTime.parse(s.date!)));
+      dateSet.addAll(
+        plan!.tripPlan.itinerary.sections
+            .where((s) => s.date != null)
+            .map((s) => DateTime.parse(s.date!)),
+      );
     }
     dateSet.addAll(flightsByDate.keys);
     dateSet.addAll(hotelsByDate.keys);
@@ -206,9 +235,7 @@ class TripPageState extends State<TripPage> {
   Widget build(BuildContext context) {
     if (_isLoading && plan == null) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.tripTitle ?? 'Loading...'),
-        ),
+        appBar: AppBar(title: Text(widget.tripTitle ?? 'Loading...')),
         body: _buildLoadingSkeleton(),
       );
     }
@@ -219,12 +246,16 @@ class TripPageState extends State<TripPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline,
-                  size: 64,
-                  color: Theme.of(context).colorScheme.error),
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Theme.of(context).colorScheme.error,
+              ),
               const SizedBox(height: 16),
-              Text('Could not load trip data',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'Could not load trip data',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
               FilledButton.icon(
                 onPressed: () {
@@ -249,16 +280,18 @@ class TripPageState extends State<TripPage> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(plan!.tripPlan.title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    )),
+            Text(
+              plan!.tripPlan.title,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
             if (_lastFetchTime != null)
               Text(
                 'Updated ${timeago.format(_lastFetchTime!)}',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
           ],
         ),
@@ -269,7 +302,8 @@ class TripPageState extends State<TripPage> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (context) => MapView(tripPlan: plan!.tripPlan)),
+                builder: (context) => MapView(tripPlan: plan!.tripPlan),
+              ),
             ),
           ),
           PopupMenuButton(
@@ -303,25 +337,32 @@ class TripPageState extends State<TripPage> {
               switch (value) {
                 case 'packing':
                   Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => PackingListPage(
-                              tripPlan: plan!.tripPlan,
-                              tripId: widget.tripId)));
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PackingListPage(
+                        tripPlan: plan!.tripPlan,
+                        tripId: widget.tripId,
+                      ),
+                    ),
+                  );
                   break;
                 case 'budget':
                   Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) =>
-                              BudgetPage(budget: plan!.tripPlan.itinerary.budget)));
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          BudgetPage(budget: plan!.tripPlan.itinerary.budget),
+                    ),
+                  );
                   break;
                 case 'expenses':
                   Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) =>
-                              ExpensesPage(expenses: plan!.tripPlan.expenses)));
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          ExpensesPage(expenses: plan!.tripPlan.expenses),
+                    ),
+                  );
                   break;
               }
             },
@@ -385,11 +426,8 @@ class TripPageState extends State<TripPage> {
               String formattedDate = DateFormat("yyyy-MM-dd").format(date);
               return s.date == formattedDate;
             },
-            orElse: () => Section(
-              date: date.toString(),
-              heading: '',
-              blocks: [],
-            ),
+            orElse: () =>
+                Section(date: date.toString(), heading: '', blocks: []),
           );
 
           return DayView(
@@ -459,7 +497,8 @@ class TripPageState extends State<TripPage> {
   }
 
   Map<DateTime, List<FlightBlock>> _getFlightsByDate(
-      TripPlanResponse fetchedPlan) {
+    TripPlanResponse fetchedPlan,
+  ) {
     Map<DateTime, List<FlightBlock>> result = {};
     for (Section section in fetchedPlan.tripPlan.itinerary.sections) {
       for (Block block in section.blocks) {
@@ -477,7 +516,8 @@ class TripPageState extends State<TripPage> {
   }
 
   Map<DateTime, List<PlaceBlock>> _getHotelsByDate(
-      TripPlanResponse fetchedPlan) {
+    TripPlanResponse fetchedPlan,
+  ) {
     Map<DateTime, List<PlaceBlock>> result = {};
     for (Section section in fetchedPlan.tripPlan.itinerary.sections) {
       for (Block block in section.blocks) {
@@ -485,9 +525,11 @@ class TripPageState extends State<TripPage> {
           DateTime checkInDate = DateTime.parse(block.hotel!.checkIn!);
           DateTime checkOutDate = DateTime.parse(block.hotel!.checkOut!);
           if (checkInDate.isAfter(checkOutDate)) continue;
-          for (DateTime date = checkInDate;
-              date.isBefore(checkOutDate);
-              date = date.add(const Duration(days: 1))) {
+          for (
+            DateTime date = checkInDate;
+            date.isBefore(checkOutDate);
+            date = date.add(const Duration(days: 1))
+          ) {
             result.putIfAbsent(date, () => []).add(block);
           }
         }
@@ -497,7 +539,8 @@ class TripPageState extends State<TripPage> {
   }
 
   Map<DateTime, List<TransitBlock>> _getTransitByDate(
-      TripPlanResponse fetchedPlan) {
+    TripPlanResponse fetchedPlan,
+  ) {
     Map<DateTime, List<TransitBlock>> result = {};
     for (Section section in fetchedPlan.tripPlan.itinerary.sections) {
       for (Block block in section.blocks) {
@@ -523,13 +566,13 @@ class TripPageState extends State<TripPage> {
 
   Map<int, Expense> _getExpensesById(TripPlanResponse fetchedPlan) {
     return {
-      for (final expense in fetchedPlan.tripPlan.expenses)
-        expense.id: expense
+      for (final expense in fetchedPlan.tripPlan.expenses) expense.id: expense,
     };
   }
 
   Map<String, PlaceMetadata> _getPlaceMetadataMap(
-      List<PlaceMetadata> placeMetadata) {
+    List<PlaceMetadata> placeMetadata,
+  ) {
     return {for (final p in placeMetadata) p.placeId: p};
   }
 }
@@ -564,8 +607,7 @@ class DayView extends StatefulWidget {
   State<DayView> createState() => _DayViewState();
 }
 
-class _DayViewState extends State<DayView>
-    with AutomaticKeepAliveClientMixin {
+class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
@@ -664,7 +706,8 @@ class _DayViewState extends State<DayView>
 
   Widget _buildHeader(ThemeData theme) {
     final today = DateTime.now();
-    final isToday = widget.date.year == today.year &&
+    final isToday =
+        widget.date.year == today.year &&
         widget.date.month == today.month &&
         widget.date.day == today.day;
 
@@ -690,7 +733,9 @@ class _DayViewState extends State<DayView>
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: theme.colorScheme.primaryContainer,
                           borderRadius: BorderRadius.circular(10),
@@ -818,8 +863,7 @@ class UnscheduledSectionView extends StatefulWidget {
   });
 
   @override
-  State<UnscheduledSectionView> createState() =>
-      _UnscheduledSectionViewState();
+  State<UnscheduledSectionView> createState() => _UnscheduledSectionViewState();
 }
 
 class _UnscheduledSectionViewState extends State<UnscheduledSectionView>
@@ -891,8 +935,7 @@ class _UnscheduledSectionViewState extends State<UnscheduledSectionView>
           if (widget.section.text != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: TextContainerWidget(
-                  textContainer: widget.section.text!),
+              child: TextContainerWidget(textContainer: widget.section.text!),
             ),
           ...widget.section.blocks.map((b) {
             if (b is PlaceBlock) {
@@ -1102,7 +1145,8 @@ class CalendarDay extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final today = DateTime.now();
-    final isToday = date.year == today.year &&
+    final isToday =
+        date.year == today.year &&
         date.month == today.month &&
         date.day == today.day;
 
@@ -1118,8 +1162,8 @@ class CalendarDay extends StatelessWidget {
             color: isSelected
                 ? theme.colorScheme.primary
                 : isToday
-                    ? theme.colorScheme.primaryContainer.withAlpha(100)
-                    : Colors.transparent,
+                ? theme.colorScheme.primaryContainer.withAlpha(100)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             border: isToday && !isSelected
                 ? Border.all(color: theme.colorScheme.primary, width: 1.5)

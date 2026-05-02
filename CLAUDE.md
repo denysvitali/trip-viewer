@@ -43,12 +43,12 @@ A `.env` file with `MAPBOX_ACCESS_TOKEN=<token>` is required at the project root
 
 **State management**: Pure `StatefulWidget` + `setState()`. No Provider/Riverpod/Bloc.
 
-**Data flow**: HTTP GET → `TripPlanResponse.fromJson()` (json_serializable) → cached in SharedPreferences via `TripCacheService` → rendered in UI.
+**Data flow**: Provider import reference → provider fetch client → `TripPlanResponse.fromJson()` (json_serializable) → cached in SharedPreferences via `TripCacheService` with a 7-day TTL → rendered in UI.
 
 **Key directories under `lib/`**:
 - `pages/` — Screen-level widgets. `trip.dart` is the main trip timeline (~850 lines) with date-based `PageView`, flight/hotel/transit aggregation by date, and a calendar strip.
 - `models/` — `trip_plan.dart` contains the full data model hierarchy. Uses `@JsonSerializable()` with build_runner-generated `.g.dart` files.
-- `services/` — `settings_service.dart` (SharedPreferences wrapper for trip ID), `trip_cache_service.dart` (local trip data cache).
+- `services/` — `trip_provider_service.dart` (provider parsing/fetching, currently Wanderlog only), `trip_storage_service.dart` (local imported trip references), `trip_cache_service.dart` (local trip data cache).
 - `widgets/blocks/` — Per-block-type widgets (`FlightBlock`, `PlaceBlock`, `HotelBlock`, `TransitBlock`, `NoteBlock`, `GenericBlock`).
 
 **Block polymorphism**: `Block.getBlock()` factory deserializes by `type` field into specific subtypes (place, flight, transit, note, hotel).
@@ -57,7 +57,7 @@ A `.env` file with `MAPBOX_ACCESS_TOKEN=<token>` is required at the project root
 
 ## Android Signing
 
-Release builds use an encrypted keystore. The scripts in `android/scripts/` handle decryption (`decrypt-key.sh`) and `key.properties` generation (`setup-keystore.sh`). Required secrets: `DECRYPTION_KEY`, `STORE_PASSWORD`, `KEY_PASSWORD`. Package name: `it.denv.trip_viewer`.
+Release builds use an encrypted keystore. The scripts in `android/scripts/` handle decryption (`decrypt-key.sh`) and `key.properties` generation (`setup-keystore.sh`). Required secrets: `DECRYPTION_KEY`, `STORE_PASSWORD`, `KEY_PASSWORD`. Package name: `it.denv.tripviewer`.
 
 ## CI/CD
 
