@@ -400,29 +400,53 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
-      - name: Setup Java
+      - name: Validate signing keystore
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        id: validate_keystore
+        shell: bash
+        run: |
+          if ! keytool -importkeystore \
+            -srckeystore release-keystore.jks \
+            -srcstorepass "$KEYSTORE_STORE_PASSWORD" \
+            -srcalias "$KEYSTORE_KEY_ALIAS" \
+            -srckeypass "$KEYSTORE_KEY_PASSWORD" \
+            -destkeystore /tmp/release-keystore-check.p12 \
+            -deststoretype PKCS12 \
+            -deststorepass changeit \
+            -destkeypass changeit \
+            -noprompt; then
+            echo "::warning::Release keystore secrets are invalid, skipping release build"
+            echo "can_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "can_release=true" >> "$GITHUB_OUTPUT"
+        env:
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+
+      - name: Setup Java
+        if: ${{ steps.validate_keystore.outputs.can_release == 'true' }}
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
 
       - name: Setup Flutter
-        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        if: ${{ steps.validate_keystore.outputs.can_release == 'true' }}
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           flutter-version: 3.38.7
 
       - name: Setup Android NDK
-        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        if: ${{ steps.validate_keystore.outputs.can_release == 'true' }}
         run: |
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses || true
           "$SDKMANAGER" "ndk;28.2.13676358"
 
       - name: Cache pub dependencies
-        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        if: ${{ steps.validate_keystore.outputs.can_release == 'true' }}
         uses: actions/cache@v5
         with:
           path: ~/.pub-cache
@@ -431,7 +455,7 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Cache Gradle
-        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        if: ${{ steps.validate_keystore.outputs.can_release == 'true' }}
         uses: actions/cache@v5
         with:
           path: |
@@ -442,11 +466,11 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Get dependencies
-        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        if: ${{ steps.validate_keystore.outputs.can_release == 'true' }}
         run: flutter pub get
 
       - name: Stabilize Kotlin compiler
-        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        if: ${{ steps.validate_keystore.outputs.can_release == 'true' }}
         run: |
           mkdir -p ~/.gradle
           {
@@ -463,7 +487,7 @@ jobs:
           echo "FLAVOR=$FLAVOR" >> $GITHUB_OUTPUT
 
       - name: Build Release APK
-        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        if: ${{ steps.validate_keystore.outputs.can_release == 'true' }}
         env:
           APP_ENV: ${{ steps.flavor.outputs.FLAVOR }}
           KEYSTORE_PATH: ${{ github.workspace }}/release-keystore.jks
@@ -479,7 +503,7 @@ jobs:
             --obfuscate
 
       - name: Upload debug symbols to Sentry
-        if: ${{ steps.check_keystore.outputs.skip_release != 'true' && env.SENTRY_AUTH_TOKEN != '' }}
+        if: ${{ steps.validate_keystore.outputs.can_release == 'true' && env.SENTRY_AUTH_TOKEN != '' }}
         run: |
           flutter pub run sentry_dart_plugin
         env:
@@ -488,7 +512,7 @@ jobs:
           SENTRY_RELEASE: happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
 
       - name: Upload Release APK
-        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        if: ${{ steps.validate_keystore.outputs.can_release == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: happy-flutter-release-${{ steps.flavor.outputs.FLAVOR }}-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
@@ -496,7 +520,7 @@ jobs:
           retention-days: 14
 
       - name: Upload debug info artifact
-        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        if: ${{ steps.validate_keystore.outputs.can_release == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: debug-info-release-${{ steps.flavor.outputs.FLAVOR }}-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
@@ -504,7 +528,7 @@ jobs:
           retention-days: 90
 
       - name: Determine release version
-        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        if: ${{ steps.validate_keystore.outputs.can_release == 'true' }}
         id: release_version
         run: |
           SEMVER=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | cut -d'+' -f1 | tr -d ' ')
@@ -513,7 +537,7 @@ jobs:
           echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        if: ${{ steps.validate_keystore.outputs.can_release == 'true' }}
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.release_version.outputs.RELEASE_TAG }}
