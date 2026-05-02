@@ -1,4 +1,4 @@
-name: Trip Viewer CI/CD
+name: Happy Flutter CI/CD
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -6,10 +6,10 @@ concurrency:
 
 on:
   push:
-    branches: [main, master, develop]
+    branches: [main, develop]
     tags: ['v*']
   pull_request:
-    branches: [main, master]
+    branches: [main]
   workflow_dispatch:
     inputs:
       build_type:
@@ -21,9 +21,17 @@ on:
           - debug
           - release
           - both
+      flavor:
+        description: 'App flavor (environment)'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - development
+          - preview
+          - production
 
 env:
-  JAVA_VERSION: '21'
   DART_VM_OPTIONS: '--max-gen-heap-size=4096'
 
 permissions:
@@ -32,17 +40,21 @@ permissions:
   id-token: write
 
 jobs:
+  # Run analyze and test in parallel — both need pub get but are independent after
   analyze:
     name: Analyze Code
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          lfs: true
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          version: 3.38.7
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -52,23 +64,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pub-
 
-      - name: Setup .env
-        run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
-
       - name: Get dependencies
         run: flutter pub get
-
-      - name: Generate code
-        run: |
-          flutter pub run build_runner build --delete-conflicting-outputs
-          flutter gen-l10n
 
       - name: Analyze code
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
   test:
-    name: Run Tests
+    name: Test (shard ${{ matrix.shard }}/${{ matrix.total_shards }})
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        total_shards: [8]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -77,6 +87,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          version: 3.38.7
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -86,31 +97,128 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pub-
 
-      - name: Setup .env
-        run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Run tests (shard ${{ matrix.shard }}/${{ matrix.total_shards }})
+        run: |
+          mapfile -t all_tests < <(find test -name '*_test.dart' \
+            ! -path 'test/golden/*' | sort)
+          total=${#all_tests[@]}
+          shard=$(( ${{ matrix.shard }} - 1 ))
+          num_shards=${{ matrix.total_shards }}
+          per_shard=$(( (total + num_shards - 1) / num_shards ))
+          start=$(( shard * per_shard ))
+          shard_tests=("${all_tests[@]:$start:$per_shard}")
+          if [ ${#shard_tests[@]} -eq 0 ]; then
+            echo "No tests in this shard, skipping."
+            exit 0
+          fi
+          echo "Running ${#shard_tests[@]} of $total test files (shard ${{ matrix.shard }}/${{ matrix.total_shards }})"
+          flutter test --coverage --concurrency=4 "${shard_tests[@]}"
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-shard-${{ matrix.shard }}
+          path: coverage/lcov.info
+          retention-days: 1
+          if-no-files-found: ignore
+
+  coverage:
+    name: Upload Coverage
+    needs: test
+    runs-on: ubuntu-latest
+    if: always() && needs.test.result == 'success'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Download all coverage artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: coverage-shard-*
+          path: coverage-shards
+
+      - name: Merge coverage reports
+        run: |
+          mkdir -p coverage
+          # Concatenate all shard lcov files. Multiple SF (source file) entries
+          # for the same file with different line counts get summed by Codecov.
+          found=0
+          for f in coverage-shards/*/lcov.info; do
+            [ -f "$f" ] || continue
+            echo "Shard file: $f ($(wc -l < "$f") lines)"
+            if [ $found -eq 0 ]; then
+              cp "$f" coverage/lcov.info
+            else
+              # Skip TN: (test name) lines, keep all other lcov records.
+              # Codecov sums SF/DA/FN/... lines by source file path.
+              grep -v "^TN:" "$f" >> coverage/lcov.info || true
+            fi
+            found=$((found + 1))
+          done
+          echo "Merged $found shard coverage files"
+          echo "Total lines: $(wc -l < coverage/lcov.info)"
+          echo "Source files: $(grep -c '^SF:' coverage/lcov.info)"
+
+      - name: Install curl
+        run: sudo apt-get update && sudo apt-get install -y curl
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/lcov.info
+          fail_ci_if_error: true
+
+  golden:
+    name: Golden Screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Run on PRs to main to catch regressions; skip on draft PRs
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          version: 3.38.7
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v5
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
 
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Generate code
-        run: |
-          flutter pub run build_runner build --delete-conflicting-outputs
-          flutter gen-l10n
-
-      - name: Run tests
-        run: flutter test
+      - name: Run golden tests
+        # Runs both the phone suite (golden_test.dart) and the tablet suite
+        # (tablet_golden_test.dart) in `test/golden/`.
+        run: flutter test test/golden/
 
   build-debug:
     name: Build Debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Run on push/PR events (but not tags), or workflow_dispatch with debug or both selected
     if: |
       (github.event_name != 'workflow_dispatch' &&
        !startsWith(github.ref, 'refs/tags/v') &&
-       github.ref != 'refs/heads/main' &&
-       github.ref != 'refs/heads/master') ||
+       github.ref != 'refs/heads/main') ||
       github.event.inputs.build_type == 'debug' ||
       github.event.inputs.build_type == 'both'
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -120,6 +228,18 @@ jobs:
         run: |
           BUILD_NUMBER=$(( ${{ github.run_number }} * 100 + ${{ github.run_attempt }} ))
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+
+      - name: Prepare signing keystore (optional)
+        id: debug_keystore
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "KEYSTORE_PATH=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > ci-keystore.jks
+          echo "KEYSTORE_PATH=${{ github.workspace }}/ci-keystore.jks" >> $GITHUB_OUTPUT
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
       - name: Free disk space
         run: |
@@ -138,12 +258,13 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          version: 3.38.7
 
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: ${{ env.JAVA_VERSION }}
+      - name: Setup Android NDK
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses || true
+          "$SDKMANAGER" "ndk;28.2.13676358"
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -152,9 +273,6 @@ jobs:
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
           restore-keys: |
             ${{ runner.os }}-pub-
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
 
       - name: Cache Gradle
         uses: actions/cache@v5
@@ -166,41 +284,59 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Setup .env
-        run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
-
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Generate code
+      - name: Stabilize Kotlin compiler
         run: |
-          flutter pub run build_runner build --delete-conflicting-outputs
-          flutter gen-l10n
+          mkdir -p ~/.gradle
+          {
+            echo 'kotlin.compiler.execution.strategy=in-process'
+          } >> ~/.gradle/gradle.properties
+
+      - name: Determine flavor
+        id: flavor
+        run: |
+          FLAVOR="${{ github.event.inputs.flavor }}"
+          if [ -z "$FLAVOR" ]; then
+            FLAVOR="production"
+          fi
+          echo "FLAVOR=$FLAVOR" >> $GITHUB_OUTPUT
 
       - name: Build Debug APK
         run: |
           flutter build apk --debug --no-pub \
+            --flavor ${{ steps.flavor.outputs.FLAVOR }} \
             --target-platform android-arm64 \
-            --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }}
+            --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }} \
+            --dart-define=SENTRY_RELEASE=happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
+        env:
+          APP_ENV: ${{ steps.flavor.outputs.FLAVOR }}
+          KEYSTORE_PATH: ${{ steps.debug_keystore.outputs.KEYSTORE_PATH }}
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+          KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
 
       - name: Upload Debug APK
-        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
-          name: trip-viewer-debug-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: happy-flutter-debug-${{ steps.flavor.outputs.FLAVOR }}-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
+          path: build/app/outputs/flutter-apk/app-${{ steps.flavor.outputs.FLAVOR }}-debug.apk
           retention-days: 14
 
   build-release:
-    name: Build Release App Bundle
+    name: Build Release APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    # Run on main pushes, workflow_dispatch (release/both), and version tags.
     if: |
-      (github.event_name == 'push' &&
-       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' &&
        (github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both')) ||
       startsWith(github.ref, 'refs/tags/v')
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -211,7 +347,20 @@ jobs:
           BUILD_NUMBER=$(( ${{ github.run_number }} * 100 + ${{ github.run_attempt }} ))
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
 
+      - name: Check for keystore
+        id: check_keystore
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::Keystore not configured, skipping release build"
+            echo "skip_release=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "skip_release=false" >> $GITHUB_OUTPUT
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+
       - name: Free disk space
+        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
         run: |
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
@@ -220,22 +369,33 @@ jobs:
           sudo rm -rf /opt/microsoft/powershell
           sudo rm -rf /usr/local/share/chromedriver-linux64
           sudo rm -rf /usr/local/share/edge_driver
-          sudo rm -rf /usr/share/gecko_driver
+          sudo rm -rf /usr/local/share/gecko_driver
           sudo rm -rf /usr/share/swift
           df -h
 
+      - name: Create keystore
+        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > release-keystore.jks
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+
       - name: Setup Flutter
+        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          version: 3.38.7
 
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: ${{ env.JAVA_VERSION }}
+      - name: Setup Android NDK
+        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses || true
+          "$SDKMANAGER" "ndk;28.2.13676358"
 
       - name: Cache pub dependencies
+        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
         uses: actions/cache@v5
         with:
           path: ~/.pub-cache
@@ -243,10 +403,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pub-
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
-
       - name: Cache Gradle
+        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
         uses: actions/cache@v5
         with:
           path: |
@@ -256,55 +414,72 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Setup .env
-        run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
-
       - name: Get dependencies
+        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
         run: flutter pub get
 
-      - name: Generate code
+      - name: Stabilize Kotlin compiler
+        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
         run: |
-          flutter pub run build_runner build --delete-conflicting-outputs
-          flutter gen-l10n
+          mkdir -p ~/.gradle
+          {
+            echo 'kotlin.compiler.execution.strategy=in-process'
+          } >> ~/.gradle/gradle.properties
 
-      - name: Decrypt keystore
+      - name: Determine flavor
+        id: flavor
         run: |
-          pushd android
-          ./scripts/decrypt-key.sh "upload.jks.enc" "upload.jks"
-          ./scripts/setup-keystore.sh
+          FLAVOR="${{ github.event.inputs.flavor }}"
+          if [ -z "$FLAVOR" ]; then
+            FLAVOR="production"
+          fi
+          echo "FLAVOR=$FLAVOR" >> $GITHUB_OUTPUT
+
+      - name: Build Release APK
+        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
         env:
-          DECRYPTION_KEY: ${{ secrets.DECRYPTION_KEY }}
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-
-      - name: Set version
+          APP_ENV: ${{ steps.flavor.outputs.FLAVOR }}
+          KEYSTORE_PATH: ${{ github.workspace }}/release-keystore.jks
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+          KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
+          GRADLE_OPTS: '-Dorg.gradle.jvmargs=-Xmx4g'
         run: |
-          sed -i -E "s/version: (.*?)\+(.*?)/version: \1+${{ steps.build_meta.outputs.BUILD_NUMBER }}/g" pubspec.yaml
+          flutter build apk --release --no-pub \
+            --flavor ${{ steps.flavor.outputs.FLAVOR }} \
+            --target-platform android-arm64 \
+            --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }} \
+            --dart-define=SENTRY_RELEASE=happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }} \
+            --split-debug-info=build/debug-info \
+            --obfuscate
 
-      - name: Build Release App Bundle
+      - name: Upload debug symbols to Sentry
+        if: ${{ steps.check_keystore.outputs.skip_release != 'true' && env.SENTRY_AUTH_TOKEN != '' }}
         run: |
-          flutter build appbundle --release --no-pub \
-            --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }}
+          flutter pub run sentry_dart_plugin
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_DIST: ${{ steps.build_meta.outputs.BUILD_NUMBER }}
+          SENTRY_RELEASE: happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
 
-      - name: Upload Release App Bundle
-        continue-on-error: true
+      - name: Upload Release APK
+        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
         uses: actions/upload-artifact@v7
         with:
-          name: trip-viewer-release-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
-          path: build/app/outputs/bundle/release/app-release.aab
+          name: happy-flutter-release-${{ steps.flavor.outputs.FLAVOR }}-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
+          path: build/app/outputs/flutter-apk/app-${{ steps.flavor.outputs.FLAVOR }}-release.apk
           retention-days: 14
 
-      - name: Deploy to Google Play
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-        uses: r0adkll/upload-google-play@v1
+      - name: Upload debug info artifact
+        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        uses: actions/upload-artifact@v7
         with:
-          serviceAccountJsonPlainText: ${{ secrets.SERVICE_ACCOUNT_JSON }}
-          packageName: it.denv.tripviewer
-          releaseFiles: build/app/outputs/bundle/release/app-release.aab
-          track: internal
-          status: draft
+          name: debug-info-release-${{ steps.flavor.outputs.FLAVOR }}-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
+          path: build/debug-info/
+          retention-days: 90
 
       - name: Determine release version
+        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
         id: release_version
         run: |
           SEMVER=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | cut -d'+' -f1 | tr -d ' ')
@@ -313,23 +488,25 @@ jobs:
           echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
+        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.release_version.outputs.RELEASE_TAG }}
-          name: Trip Viewer ${{ steps.release_version.outputs.RELEASE_TAG }}
+          name: Happy Flutter ${{ steps.release_version.outputs.RELEASE_TAG }}
           draft: false
           prerelease: false
           generate_release_notes: false
-          files: build/app/outputs/bundle/release/app-release.aab
+          files: build/app/outputs/flutter-apk/app-${{ steps.flavor.outputs.FLAVOR }}-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-web:
     name: Build Web
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    outputs:
-      web_artifact_uploaded: ${{ steps.upload_web.outcome == 'success' }}
+    env:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -338,6 +515,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          version: 3.38.7
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -347,23 +525,46 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pub-
 
-      - name: Setup .env
-        run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
-
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Generate code
+      - name: Compute build metadata
+        id: build_meta
         run: |
-          flutter pub run build_runner build --delete-conflicting-outputs
-          flutter gen-l10n
+          BUILD_NUMBER=$(( ${{ github.run_number }} * 100 + ${{ github.run_attempt }} ))
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
 
       - name: Build Web
-        run: flutter build web --release --base-href '/'
+        run: |
+          flutter build web --release \
+            --base-href '/' \
+            --source-maps \
+            --dart-define=COMMIT_SHA=${{ github.sha }} \
+            --dart-define=SENTRY_RELEASE=happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
+
+      - name: Upload web source maps to Sentry
+        if: ${{ env.SENTRY_AUTH_TOKEN != '' }}
+        run: |
+          flutter pub run sentry_dart_plugin
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_DIST: ${{ steps.build_meta.outputs.BUILD_NUMBER }}
+          SENTRY_RELEASE: happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
+
+      - name: Cache-bust assets
+        run: |
+          # Bust flutter_bootstrap.js so the browser fetches the new bootstrap,
+          # which contains the updated serviceWorkerVersion that triggers a
+          # service-worker update → fresh main.dart.js + all hashed assets.
+          sed -i 's|flutter_bootstrap.js"|flutter_bootstrap.js?v=${{ github.sha }}"|' \
+            build/web/index.html
+          # Prevent browser caching of index.html itself
+          sed -i 's|<head>|<head><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">|' \
+            build/web/index.html
+          # Custom domain for GitHub Pages
+          echo "happy.denv.it" > build/web/CNAME
 
       - name: Upload Web Build
-        id: upload_web
-        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: web-build
@@ -374,12 +575,12 @@ jobs:
     name: Deploy to GitHub Pages
     needs: build-web
     runs-on: ubuntu-latest
-    if: |
-      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') &&
-      needs.build-web.outputs.web_artifact_uploaded == 'true'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
       - name: Download Web Build
         uses: actions/download-artifact@v8
@@ -389,8 +590,6 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v6
-        with:
-          enablement: true
 
       - name: Upload to GitHub Pages
         uses: actions/upload-pages-artifact@v5
