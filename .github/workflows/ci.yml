@@ -264,11 +264,17 @@ jobs:
           sudo rm -rf /usr/share/swift
           df -h
 
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          version: 3.38.7
+          flutter-version: 3.38.7
 
       - name: Setup Android NDK
         run: |
@@ -394,12 +400,19 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
+      - name: Setup Java
+        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
       - name: Setup Flutter
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          version: 3.38.7
+          flutter-version: 3.38.7
 
       - name: Setup Android NDK
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
