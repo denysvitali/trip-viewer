@@ -30,6 +30,53 @@ GitHub Actions runs on GitHub-hosted `ubuntu-latest` runners. Analyze, test,
 Android debug, Android release, and web build jobs are split so they can run on
 separate runners.
 
+## Android release signing secrets
+
+If release builds are skipped with `Keystore not configured`, configure GH Actions
+secrets with:
+- `KEYSTORE_BASE64`
+- `KEYSTORE_STORE_PASSWORD`
+- `KEYSTORE_KEY_PASSWORD`
+- `KEYSTORE_KEY_ALIAS`
+
+You can generate them and get ready-to-copy export lines in one step:
+
+```bash
+cd /path/to/wanderlog_alt
+./android/scripts/setup-gh-release-secrets.sh --create-keystore
+```
+
+If you want to control keystore values:
+
+```bash
+cd /path/to/wanderlog_alt
+export KEYSTORE_KEY_ALIAS=upload
+export KEYSTORE_DNAME='CN=TripViewer, OU=CI, O=TripViewer, L=Unknown, ST=Unknown, C=US'
+./android/scripts/setup-gh-release-secrets.sh --create-keystore --force
+```
+
+Or if you already have a keystore:
+
+```bash
+cd /path/to/wanderlog_alt
+export KEYSTORE_PATH=upload.jks
+export KEYSTORE_STORE_PASSWORD=...
+export KEYSTORE_KEY_PASSWORD=...
+export KEYSTORE_KEY_ALIAS=...
+./android/scripts/setup-gh-release-secrets.sh
+```
+
+To also upload to GitHub secrets directly:
+
+```bash
+export KEYSTORE_PATH=upload.jks
+export KEYSTORE_STORE_PASSWORD=...
+export KEYSTORE_KEY_PASSWORD=...
+export KEYSTORE_KEY_ALIAS=...
+export GITHUB_REPOSITORY=owner/repo
+./android/scripts/setup-gh-release-secrets.sh --set-secrets
+```
+
 ## License
 
 Trip Viewer is licensed under the GNU General Public License v3.0. See
