@@ -41,9 +41,14 @@ jobs:
 
       - name: Install Nix
         uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
 
-      - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+      - name: Use devenv cache
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -57,15 +62,15 @@ jobs:
         run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
 
       - name: Get dependencies
-        run: devenv shell -- flutter pub get
+        run: nix run github:cachix/devenv/latest -- devenv shell -- flutter pub get
 
       - name: Generate code
         run: |
-          devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
-          devenv shell -- flutter gen-l10n
+          nix run github:cachix/devenv/latest -- devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
+          nix run github:cachix/devenv/latest -- devenv shell -- flutter gen-l10n
 
       - name: Analyze code
-        run: devenv shell -- flutter analyze --no-fatal-infos --no-fatal-warnings
+        run: nix run github:cachix/devenv/latest -- devenv shell -- flutter analyze --no-fatal-infos --no-fatal-warnings
 
   test:
     name: Run Tests
@@ -76,9 +81,14 @@ jobs:
 
       - name: Install Nix
         uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
 
-      - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+      - name: Use devenv cache
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -92,15 +102,15 @@ jobs:
         run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
 
       - name: Get dependencies
-        run: devenv shell -- flutter pub get
+        run: nix run github:cachix/devenv/latest -- devenv shell -- flutter pub get
 
       - name: Generate code
         run: |
-          devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
-          devenv shell -- flutter gen-l10n
+          nix run github:cachix/devenv/latest -- devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
+          nix run github:cachix/devenv/latest -- devenv shell -- flutter gen-l10n
 
       - name: Run tests
-        run: devenv shell -- flutter test
+        run: nix run github:cachix/devenv/latest -- devenv shell -- flutter test
 
   build-debug:
     name: Build Debug APK
@@ -138,9 +148,14 @@ jobs:
 
       - name: Install Nix
         uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
 
-      - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+      - name: Use devenv cache
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -164,21 +179,20 @@ jobs:
 
       - name: Setup Flutter SDK path
         run: |
-          FLUTTER_SDK=$(devenv shell -- flutter config --machine 2>/dev/null | grep -oP '(?<=sdk-dir: ).*' || echo "$HOME/.pub-cache/flutter")
-          echo "flutter.sdk=$FLUTTER_SDK" >> $GITHUB_ENV
+          FLUTTER_SDK=$(nix run github:cachix/devenv/latest -- devenv shell -- printenv FLUTTER_ROOT 2>/dev/null || echo "$HOME/.pub-cache/flutter")
           echo "flutter.sdk=$FLUTTER_SDK" > android/local.properties
 
       - name: Get dependencies
-        run: devenv shell -- flutter pub get
+        run: nix run github:cachix/devenv/latest -- devenv shell -- flutter pub get
 
       - name: Generate code
         run: |
-          devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
-          devenv shell -- flutter gen-l10n
+          nix run github:cachix/devenv/latest -- devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
+          nix run github:cachix/devenv/latest -- devenv shell -- flutter gen-l10n
 
       - name: Build Debug APK
         run: |
-          devenv shell -- flutter build apk --debug --no-pub \
+          nix run github:cachix/devenv/latest -- devenv shell -- flutter build apk --debug --no-pub \
             --target-platform android-arm64 \
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }}
 
@@ -225,9 +239,14 @@ jobs:
 
       - name: Install Nix
         uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
 
-      - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+      - name: Use devenv cache
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -251,17 +270,16 @@ jobs:
 
       - name: Setup Flutter SDK path
         run: |
-          FLUTTER_SDK=$(devenv shell -- flutter config --machine 2>/dev/null | grep -oP '(?<=sdk-dir: ).*' || echo "$HOME/.pub-cache/flutter")
-          echo "flutter.sdk=$FLUTTER_SDK" >> $GITHUB_ENV
+          FLUTTER_SDK=$(nix run github:cachix/devenv/latest -- devenv shell -- printenv FLUTTER_ROOT 2>/dev/null || echo "$HOME/.pub-cache/flutter")
           echo "flutter.sdk=$FLUTTER_SDK" > android/local.properties
 
       - name: Get dependencies
-        run: devenv shell -- flutter pub get
+        run: nix run github:cachix/devenv/latest -- devenv shell -- flutter pub get
 
       - name: Generate code
         run: |
-          devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
-          devenv shell -- flutter gen-l10n
+          nix run github:cachix/devenv/latest -- devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
+          nix run github:cachix/devenv/latest -- devenv shell -- flutter gen-l10n
 
       - name: Decrypt keystore
         run: |
@@ -279,7 +297,7 @@ jobs:
 
       - name: Build Release App Bundle
         run: |
-          devenv shell -- flutter build appbundle --release --no-pub \
+          nix run github:cachix/devenv/latest -- devenv shell -- flutter build appbundle --release --no-pub \
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }}
 
       - name: Upload Release App Bundle
@@ -332,9 +350,14 @@ jobs:
 
       - name: Install Nix
         uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
 
-      - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+      - name: Use devenv cache
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -348,15 +371,15 @@ jobs:
         run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
 
       - name: Get dependencies
-        run: devenv shell -- flutter pub get
+        run: nix run github:cachix/devenv/latest -- devenv shell -- flutter pub get
 
       - name: Generate code
         run: |
-          devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
-          devenv shell -- flutter gen-l10n
+          nix run github:cachix/devenv/latest -- devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
+          nix run github:cachix/devenv/latest -- devenv shell -- flutter gen-l10n
 
       - name: Build Web
-        run: devenv shell -- flutter build web --release --base-href '/'
+        run: nix run github:cachix/devenv/latest -- devenv shell -- flutter build web --release --base-href '/'
 
       - name: Upload Web Build
         id: upload_web
