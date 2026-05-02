@@ -44,6 +44,9 @@ jobs:
   analyze:
     name: Analyze Code
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: devenv shell bash -- -e {0}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -53,8 +56,15 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v31
 
+      - name: Enable Nix binary cache for devenv
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+
       - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+        shell: bash
+        run: nix profile add nixpkgs#devenv
+
       - name: Cache pub dependencies
         uses: actions/cache@v5
         with:
@@ -64,15 +74,18 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Get dependencies
-        run: devenv shell flutter pub get
+        run: flutter pub get
 
       - name: Analyze code
-        run: devenv shell flutter analyze --no-fatal-infos --no-fatal-warnings
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
   test:
     name: Run Tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    defaults:
+      run:
+        shell: devenv shell bash -- -e {0}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -80,8 +93,15 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v31
 
+      - name: Enable Nix binary cache for devenv
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+
       - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+        shell: bash
+        run: nix profile add nixpkgs#devenv
+
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -92,10 +112,10 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Get dependencies
-        run: devenv shell flutter pub get
+        run: flutter pub get
 
       - name: Run tests
-        run: devenv shell flutter test --coverage
+        run: flutter test --coverage
 
       - name: Upload coverage artifact
         if: always()
@@ -151,6 +171,9 @@ jobs:
     name: Golden Screenshots
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    defaults:
+      run:
+        shell: devenv shell bash -- -e {0}
     # Run on PRs to main to catch regressions; skip on draft PRs
     if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     steps:
@@ -162,8 +185,15 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v31
 
+      - name: Enable Nix binary cache for devenv
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+
       - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+        shell: bash
+        run: nix profile add nixpkgs#devenv
+
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -174,17 +204,20 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Get dependencies
-        run: devenv shell flutter pub get
+        run: flutter pub get
 
       - name: Run golden tests
         # Runs both the phone suite (golden_test.dart) and the tablet suite
         # (tablet_golden_test.dart) in `test/golden/`.
-        run: devenv shell flutter test test/golden/
+        run: flutter test test/golden/
 
   build-debug:
     name: Build Debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: devenv shell bash -- -e {0}
     env:
       KEYSTORE_KEY_ALIAS: upload
     # Run on push/PR events (but not tags), or workflow_dispatch with debug or both selected
@@ -234,8 +267,14 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v31
 
+      - name: Enable Nix binary cache for devenv
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+
       - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+        shell: bash
+        run: nix profile add nixpkgs#devenv
 
       - name: Setup Android NDK
         run: |
@@ -262,7 +301,7 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Get dependencies
-        run: devenv shell flutter pub get
+        run: flutter pub get
 
       - name: Stabilize Kotlin compiler
         run: |
@@ -282,7 +321,7 @@ jobs:
 
       - name: Build Debug APK
         run: |
-          devenv shell flutter build apk --debug --no-pub \
+          flutter build apk --debug --no-pub \
             --target-platform android-arm64 \
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }} \
             --dart-define=SENTRY_RELEASE=happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
@@ -303,6 +342,9 @@ jobs:
     name: Build Release APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: devenv shell bash -- -e {0}
     env:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
       KEYSTORE_KEY_ALIAS: upload
@@ -361,9 +403,17 @@ jobs:
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
         uses: cachix/install-nix-action@v31
 
+      - name: Enable Nix binary cache for devenv
+        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+
       - name: Install devenv
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
-        run: nix profile install nixpkgs#devenv
+        shell: bash
+        run: nix profile add nixpkgs#devenv
+
 
       - name: Setup Android NDK
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
@@ -394,7 +444,7 @@ jobs:
 
       - name: Get dependencies
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
-        run: devenv shell flutter pub get
+        run: flutter pub get
 
       - name: Stabilize Kotlin compiler
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
@@ -422,7 +472,7 @@ jobs:
           KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
           GRADLE_OPTS: '-Dorg.gradle.jvmargs=-Xmx4g'
         run: |
-          devenv shell flutter build apk --release --no-pub \
+          flutter build apk --release --no-pub \
             --target-platform android-arm64 \
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }} \
             --dart-define=SENTRY_RELEASE=happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }} \
@@ -432,7 +482,7 @@ jobs:
       - name: Upload debug symbols to Sentry
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' && env.SENTRY_AUTH_TOKEN != '' }}
         run: |
-          devenv shell flutter pub run sentry_dart_plugin
+          flutter pub run sentry_dart_plugin
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_DIST: ${{ steps.build_meta.outputs.BUILD_NUMBER }}
@@ -481,6 +531,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    defaults:
+      run:
+        shell: devenv shell bash -- -e {0}
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
 
     steps:
@@ -490,8 +543,14 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v31
 
+      - name: Enable Nix binary cache for devenv
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+
       - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+        shell: bash
+        run: nix profile add nixpkgs#devenv
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -502,7 +561,7 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Get dependencies
-        run: devenv shell flutter pub get
+        run: flutter pub get
 
       - name: Compute build metadata
         id: build_meta
@@ -512,7 +571,7 @@ jobs:
 
       - name: Build Web
         run: |
-          devenv shell flutter build web --release \
+          flutter build web --release \
             --base-href '/${{ github.event.repository.name }}/' \
             --source-maps \
             --dart-define=COMMIT_SHA=${{ github.sha }} \
@@ -521,7 +580,7 @@ jobs:
       - name: Upload web source maps to Sentry
         if: ${{ env.SENTRY_AUTH_TOKEN != '' }}
         run: |
-          devenv shell flutter pub run sentry_dart_plugin
+          flutter pub run sentry_dart_plugin
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_DIST: ${{ steps.build_meta.outputs.BUILD_NUMBER }}
