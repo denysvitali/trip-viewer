@@ -505,7 +505,7 @@ jobs:
       - name: Build Web
         run: |
           flutter build web --release \
-            --base-href '/' \
+            --base-href '/${{ github.event.repository.name }}/' \
             --source-maps \
             --dart-define=COMMIT_SHA=${{ github.sha }} \
             --dart-define=SENTRY_RELEASE=happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
