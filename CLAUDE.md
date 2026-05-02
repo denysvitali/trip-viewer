@@ -37,7 +37,7 @@ flutter build appbundle --release
 flutter build web --release --base-href '/'
 ```
 
-A `.env` file with `MAPBOX_ACCESS_TOKEN=<token>` is required at the project root for map functionality.
+Map functionality uses MapLibre. No access token is required.
 
 ## Architecture
 
