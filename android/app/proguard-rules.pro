@@ -14,3 +14,8 @@
     public static **[] values();
     public static ** valueOf(java.lang.String);
 }
+
+# Flutter references Play Core deferred component APIs even when unused.
+-dontwarn com.google.android.play.core.splitcompat.**
+-dontwarn com.google.android.play.core.splitinstall.**
+-dontwarn com.google.android.play.core.tasks.**
