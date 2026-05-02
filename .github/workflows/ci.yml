@@ -50,11 +50,17 @@ jobs:
         with:
           lfs: true
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.38.7
+          flutter-version: stable
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -78,11 +84,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.38.7
+          flutter-version: stable
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -157,11 +169,17 @@ jobs:
         with:
           lfs: true
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.38.7
+          flutter-version: stable
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -229,11 +247,17 @@ jobs:
           sudo rm -rf /usr/share/swift
           df -h
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.38.7
+          flutter-version: stable
 
       - name: Setup Android NDK
         run: |
@@ -355,12 +379,19 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
+      - name: Setup Java
+        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
       - name: Setup Flutter
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.38.7
+          flutter-version: stable
 
       - name: Setup Android NDK
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
@@ -488,7 +519,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.38.7
+          flutter-version: stable
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
