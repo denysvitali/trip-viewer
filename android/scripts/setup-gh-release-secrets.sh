@@ -10,8 +10,8 @@ Usage:
 Environment variables:
   KEYSTORE_PATH              Path to release keystore (default: upload.jks)
   KEYSTORE_KEY_ALIAS         Keystore key alias (default: upload)
-  KEYSTORE_STORE_PASSWORD    Keystore store password (auto-generated if --create-keystore)
-  KEYSTORE_KEY_PASSWORD      Keystore key password (auto-generated if --create-keystore)
+  KEYSTORE_STORE_PASSWORD    Keystore store password (auto-generated when creating)
+  KEYSTORE_KEY_PASSWORD      Keystore key password (auto-generated when creating)
   KEYSTORE_VALIDITY_DAYS     Validity days for new key (default: 10000)
   KEYSTORE_DNAME             DName for new key (default: CN=TripViewer, OU=CI, O=TripViewer, L=Unknown, ST=Unknown, C=US)
   KEYSTORE_KEY_SIZE          RSA key size for new key (default: 2048)
@@ -19,7 +19,7 @@ Environment variables:
   GITHUB_REPOSITORY          GitHub repo owner/repo for "gh secret set" (optional)
 
 Options:
-  --create-keystore  Generate a new keystore via keytool before encoding secrets.
+  --create-keystore  Force generation of a new keystore via keytool.
   --set-secrets     Push KEYSTORE_BASE64, KEYSTORE_STORE_PASSWORD,
                     KEYSTORE_KEY_PASSWORD, KEYSTORE_KEY_ALIAS to GitHub secrets.
   --force           Overwrite existing keystore when creating.
@@ -83,6 +83,11 @@ random_password() {
   LC_ALL=C tr -dc 'A-Za-z0-9_-' < /dev/urandom | head -c "$length"
 }
 
+if [[ ! -f "$KEYSTORE_PATH" ]]; then
+  CREATE_KEYSTORE=true
+  echo "Keystore not found: $KEYSTORE_PATH. Generating a new keystore..." >&2
+fi
+
 if [[ "$CREATE_KEYSTORE" == "true" ]]; then
   if [[ -e "$KEYSTORE_PATH" && "$FORCE_CREATE" != "true" ]]; then
     echo "Keystore already exists: $KEYSTORE_PATH. Use --force to overwrite." >&2
@@ -114,14 +119,9 @@ if [[ "$CREATE_KEYSTORE" == "true" ]]; then
     -dname "$KEYSTORE_DNAME"
 fi
 
-if [[ ! -f "$KEYSTORE_PATH" ]]; then
-  echo "Keystore not found: $KEYSTORE_PATH" >&2
-  exit 1
-fi
-
 if [[ -z "$KEYSTORE_STORE_PASSWORD" || -z "$KEYSTORE_KEY_PASSWORD" ]]; then
   echo "Missing KEYSTORE_STORE_PASSWORD or KEYSTORE_KEY_PASSWORD for existing keystore inspection." >&2
-  echo "If you are generating with --create-keystore these are auto-generated." >&2
+  echo "If generating a keystore, these values are auto-generated." >&2
   exit 1
 fi
 

@@ -39,7 +39,8 @@ secrets with:
 - `KEYSTORE_KEY_PASSWORD`
 - `KEYSTORE_KEY_ALIAS`
 
-You can generate them and get ready-to-copy export lines in one step:
+You can generate them and get ready-to-copy export lines in one step. If no keystore
+exists at `KEYSTORE_PATH`, it auto-generates one.
 
 ```bash
 cd /path/to/wanderlog_alt
