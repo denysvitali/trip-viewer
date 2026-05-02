@@ -162,6 +162,12 @@ jobs:
       - name: Setup .env
         run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
 
+      - name: Setup Flutter SDK path
+        run: |
+          FLUTTER_SDK=$(devenv shell -- flutter config --machine 2>/dev/null | grep -oP '(?<=sdk-dir: ).*' || echo "$HOME/.pub-cache/flutter")
+          echo "flutter.sdk=$FLUTTER_SDK" >> $GITHUB_ENV
+          echo "flutter.sdk=$FLUTTER_SDK" > android/local.properties
+
       - name: Get dependencies
         run: devenv shell -- flutter pub get
 
@@ -242,6 +248,12 @@ jobs:
 
       - name: Setup .env
         run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
+
+      - name: Setup Flutter SDK path
+        run: |
+          FLUTTER_SDK=$(devenv shell -- flutter config --machine 2>/dev/null | grep -oP '(?<=sdk-dir: ).*' || echo "$HOME/.pub-cache/flutter")
+          echo "flutter.sdk=$FLUTTER_SDK" >> $GITHUB_ENV
+          echo "flutter.sdk=$FLUTTER_SDK" > android/local.properties
 
       - name: Get dependencies
         run: devenv shell -- flutter pub get
