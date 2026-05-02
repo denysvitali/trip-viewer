@@ -149,6 +149,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y curl
 
       - name: Upload coverage to Codecov
+        if: ${{ secrets.CODECOV_TOKEN != '' }}
         uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
