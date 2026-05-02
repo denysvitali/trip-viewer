@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import 'package:trip_viewer/models/saved_trip.dart';
 
 class TripImportReference {
@@ -19,6 +20,7 @@ abstract class TripProviderClient {
 
 class WanderlogTripProviderClient implements TripProviderClient {
   static const _apiUrl = 'https://wanderlog.com/api/tripPlans/';
+  static const _proxyUrl = 'https://whateverorigin.org/get?url=';
 
   @override
   TripProvider get provider => TripProvider.wanderlog;
@@ -42,11 +44,25 @@ class WanderlogTripProviderClient implements TripProviderClient {
   @override
   Future<Map<String, dynamic>> fetchTrip(String tripId) async {
     final url = Uri.parse('$_apiUrl$tripId?clientSchemaVersion=2');
-    final response = await http.get(url);
+    final requestUrl = kIsWeb
+        ? Uri.parse('$_proxyUrl${Uri.encodeComponent(url.toString())}')
+        : url;
+    final response = await http.get(requestUrl);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('Trip provider returned ${response.statusCode}');
     }
-    return Map<String, dynamic>.from(jsonDecode(response.body));
+
+    final decodedBody = jsonDecode(response.body);
+    if (!kIsWeb) {
+      return Map<String, dynamic>.from(decodedBody as Map<String, dynamic>);
+    }
+
+    final responseBody =
+        decodedBody is Map<String, dynamic> && decodedBody['contents'] is String
+            ? decodedBody['contents'] as String
+            : response.body;
+
+    return Map<String, dynamic>.from(jsonDecode(responseBody) as Map);
   }
 }
 
