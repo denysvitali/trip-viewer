@@ -46,6 +46,7 @@ app.*.map.json
 
 # Ignore all generated Dart files
 **/*.g.dart
+!lib/models/*.g.dart
 lib/l10n/app_localizations*.dart
 .env
 android/app/.cxx
