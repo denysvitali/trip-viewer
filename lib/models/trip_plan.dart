@@ -298,7 +298,7 @@ class Photo {
 
 @JsonSerializable()
 class GooglePlace {
-  @JsonKey(name: 'formatted_address')
+  @JsonKey(name: 'formatted_address', defaultValue: '')
   final String formattedAddress;
   @JsonKey(name: 'place_id')
   final String placeId;
@@ -346,13 +346,13 @@ class Airport {
   final String iata;
   final String name;
   final String cityName;
-  final GooglePlace googlePlace;
+  final GooglePlace? googlePlace;
 
   Airport(
       {required this.iata,
       required this.name,
       required this.cityName,
-      required this.googlePlace});
+      this.googlePlace});
 
   factory Airport.fromJson(Map<String, dynamic> json) =>
       _$AirportFromJson(json);

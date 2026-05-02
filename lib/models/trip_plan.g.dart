@@ -261,7 +261,7 @@ Map<String, dynamic> _$PhotoToJson(Photo instance) => <String, dynamic>{
     };
 
 GooglePlace _$GooglePlaceFromJson(Map<String, dynamic> json) => GooglePlace(
-      formattedAddress: json['formatted_address'] as String,
+      formattedAddress: json['formatted_address'] as String? ?? '',
       name: json['name'] as String,
       photos: (json['photos'] as List<dynamic>?)
           ?.map((e) => Photo.fromJson(e as Map<String, dynamic>))
@@ -305,8 +305,9 @@ Airport _$AirportFromJson(Map<String, dynamic> json) => Airport(
       iata: json['iata'] as String,
       name: json['name'] as String,
       cityName: json['cityName'] as String,
-      googlePlace:
-          GooglePlace.fromJson(json['googlePlace'] as Map<String, dynamic>),
+      googlePlace: json['googlePlace'] == null
+          ? null
+          : GooglePlace.fromJson(json['googlePlace'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$AirportToJson(Airport instance) => <String, dynamic>{

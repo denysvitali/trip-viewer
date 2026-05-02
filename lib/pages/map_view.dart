@@ -92,15 +92,18 @@ class _MapViewState extends State<MapView> {
           // Set arrive place to be potentially added (if not already added and has geometry)
           placeToAdd = block.arrive.place;
         } else if (block is FlightBlock) {
+          final departPlace = block.depart.airport.googlePlace;
+          final arrivePlace = block.arrive.airport.googlePlace;
+
           // Add depart airport place if not already added and has geometry
-          if (!processedPlaceIds
-                  .contains(block.depart.airport.googlePlace.placeId) &&
-              block.depart.airport.googlePlace.geometry != null) {
-            places.add(block.depart.airport.googlePlace);
-            processedPlaceIds.add(block.depart.airport.googlePlace.placeId);
+          if (departPlace != null &&
+              !processedPlaceIds.contains(departPlace.placeId) &&
+              departPlace.geometry != null) {
+            places.add(departPlace);
+            processedPlaceIds.add(departPlace.placeId);
           }
           // Set arrive airport place to be potentially added (if not already added and has geometry)
-          placeToAdd = block.arrive.airport.googlePlace;
+          placeToAdd = arrivePlace;
         }
 
         // Add the place if it's valid, has geometry, and hasn't been added yet
