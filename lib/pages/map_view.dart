@@ -1,7 +1,7 @@
-import 'dart:convert';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:trip_viewer/models/trip_plan.dart';
@@ -17,30 +17,16 @@ class MapView extends StatefulWidget {
 }
 
 class _MapViewState extends State<MapView> {
-  static final _streetStyle = jsonEncode({
-    'version': 8,
-    'sources': {
-      'osm': {
-        'type': 'raster',
-        'tiles': ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-        'tileSize': 256,
-        'attribution': 'OpenStreetMap contributors',
-        'maxzoom': 19,
-      },
-    },
-    'layers': [
-      {
-        'id': 'osm',
-        'type': 'raster',
-        'source': 'osm',
-      },
-    ],
-  });
+  static const _buildingLayerId = 'trip-viewer-3d-buildings';
 
   MapLibreMapController? _mapController;
   bool _mapInitialized = false;
   bool _showTripLine = true;
+  bool _show3dBuildings = true;
+  bool _myLocationEnabled = false;
   bool _isUpdatingRoute = false;
+  bool _isLocatingUser = false;
+  _OpenFreeMapStyle _selectedMapStyle = _OpenFreeMapStyle.bright;
 
   late final List<_MapPlace> _allPlaces;
   late final List<DateTime> _tripDays;
@@ -211,6 +197,60 @@ class _MapViewState extends State<MapView> {
     if (fitCamera) _fitVisiblePlaces();
   }
 
+  Future<void> _add3dBuildings() async {
+    if (!_show3dBuildings || _mapController == null) return;
+
+    try {
+      await _mapController!.addFillExtrusionLayer(
+        'openmaptiles',
+        _buildingLayerId,
+        const FillExtrusionLayerProperties(
+          fillExtrusionColor: [
+            'interpolate',
+            ['linear'],
+            ['get', 'render_height'],
+            0,
+            '#d1d5db',
+            200,
+            '#60a5fa',
+            400,
+            '#bfdbfe',
+          ],
+          fillExtrusionHeight: [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            15,
+            0,
+            16,
+            ['get', 'render_height'],
+          ],
+          fillExtrusionBase: [
+            'case',
+            [
+              '>=',
+              ['get', 'zoom'],
+              16,
+            ],
+            ['get', 'render_min_height'],
+            0,
+          ],
+          fillExtrusionOpacity: 0.82,
+          fillExtrusionVerticalGradient: true,
+        ),
+        sourceLayer: 'building',
+        minzoom: 15,
+        filter: [
+          '!=',
+          ['get', 'hide_3d'],
+          true,
+        ],
+      );
+    } catch (e) {
+      log('Error adding 3D buildings: $e');
+    }
+  }
+
   Future<void> _addPlaceMarkers() async {
     if (!_mapInitialized || _mapController == null) {
       return;
@@ -294,6 +334,69 @@ class _MapViewState extends State<MapView> {
   void _toggleTripLine() {
     setState(() => _showTripLine = !_showTripLine);
     _updateRouteLine();
+  }
+
+  void _setMapStyle(_OpenFreeMapStyle style) {
+    if (_selectedMapStyle == style) return;
+    setState(() {
+      _selectedMapStyle = style;
+      _mapInitialized = false;
+      _selectedPlace = null;
+      _selectedCircle = null;
+    });
+  }
+
+  void _toggle3dBuildings() {
+    setState(() {
+      _show3dBuildings = !_show3dBuildings;
+      _mapInitialized = false;
+      _selectedPlace = null;
+      _selectedCircle = null;
+    });
+  }
+
+  Future<void> _showMyLocation() async {
+    if (_isLocatingUser) return;
+
+    setState(() => _isLocatingUser = true);
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _showErrorSnackbar('Location services are disabled.');
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        _showErrorSnackbar('Location permission is required.');
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+      final point = LatLng(position.latitude, position.longitude);
+
+      if (mounted) setState(() => _myLocationEnabled = true);
+      await _mapController?.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: point, zoom: 16, tilt: 45),
+        ),
+        duration: const Duration(milliseconds: 500),
+      );
+    } catch (e) {
+      log('Error locating user: $e');
+      _showErrorSnackbar('Could not show your location.');
+    } finally {
+      if (mounted) setState(() => _isLocatingUser = false);
+    }
   }
 
   void _handleCircleClick(Circle circle) {
@@ -455,13 +558,41 @@ class _MapViewState extends State<MapView> {
                 ? null
                 : _toggleTripLine,
           ),
+          PopupMenuButton<Object>(
+            icon: const Icon(Icons.layers_outlined),
+            tooltip: 'Map style',
+            onSelected: (value) {
+              if (value is _OpenFreeMapStyle) {
+                _setMapStyle(value);
+              } else if (value == _MapMenuAction.toggle3d) {
+                _toggle3dBuildings();
+              }
+            },
+            itemBuilder: (context) => [
+              ..._OpenFreeMapStyle.values.map(
+                (style) => CheckedPopupMenuItem<_OpenFreeMapStyle>(
+                  value: style,
+                  checked: style == _selectedMapStyle,
+                  child: Text(style.label),
+                ),
+              ),
+              const PopupMenuDivider(),
+              CheckedPopupMenuItem<_MapMenuAction>(
+                value: _MapMenuAction.toggle3d,
+                checked: _show3dBuildings,
+                child: const Text('3D buildings'),
+              ),
+            ],
+          ),
         ],
       ),
       body: Stack(
         children: [
           MapLibreMap(
-            key: const ValueKey('mapWidget'),
-            styleString: _streetStyle,
+            key: ValueKey(
+              'mapWidget-${_selectedMapStyle.name}-$_show3dBuildings',
+            ),
+            styleString: _selectedMapStyle.styleUrl,
             onMapCreated: _onMapCreated,
             onStyleLoadedCallback: _onStyleLoaded,
             initialCameraPosition: CameraPosition(
@@ -472,6 +603,17 @@ class _MapViewState extends State<MapView> {
             compassEnabled: true,
             rotateGesturesEnabled: true,
             tiltGesturesEnabled: true,
+            myLocationEnabled: _myLocationEnabled,
+            myLocationRenderMode: _myLocationEnabled
+                ? MyLocationRenderMode.compass
+                : MyLocationRenderMode.normal,
+            myLocationTrackingMode: MyLocationTrackingMode.none,
+            annotationOrder: const [
+              AnnotationType.line,
+              AnnotationType.circle,
+              AnnotationType.symbol,
+              AnnotationType.fill,
+            ],
           ),
           if (!_mapInitialized)
             Container(
@@ -484,14 +626,34 @@ class _MapViewState extends State<MapView> {
           if (_mapInitialized) _buildPlacesSheet(context, visiblePlaces),
         ],
       ),
-      floatingActionButton: _mapInitialized && visiblePlaces.isNotEmpty
-          ? FloatingActionButton(
-              onPressed: () {
-                _updateSelectedCircle(null, null);
-                _fitVisiblePlaces();
-              },
-              tooltip: 'Show visible places',
-              child: const Icon(Icons.zoom_out_map),
+      floatingActionButton: _mapInitialized
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton.small(
+                  heroTag: 'myLocation',
+                  onPressed: _isLocatingUser ? null : _showMyLocation,
+                  tooltip: 'Show my location',
+                  child: _isLocatingUser
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.my_location),
+                ),
+                if (visiblePlaces.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  FloatingActionButton(
+                    heroTag: 'fitPlaces',
+                    onPressed: () {
+                      _updateSelectedCircle(null, null);
+                      _fitVisiblePlaces();
+                    },
+                    tooltip: 'Show visible places',
+                    child: const Icon(Icons.zoom_out_map),
+                  ),
+                ],
+              ],
             )
           : null,
     );
@@ -656,8 +818,26 @@ class _MapViewState extends State<MapView> {
   void _onStyleLoaded() {
     _mapInitialized = true;
     if (mounted) setState(() {});
+    _add3dBuildings();
     _refreshMapContent(fitCamera: true);
   }
+}
+
+enum _MapMenuAction {
+  toggle3d,
+}
+
+enum _OpenFreeMapStyle {
+  bright('Bright', 'https://tiles.openfreemap.org/styles/bright'),
+  liberty('Liberty', 'https://tiles.openfreemap.org/styles/liberty'),
+  positron('Positron', 'https://tiles.openfreemap.org/styles/positron'),
+  dark('Dark', 'https://tiles.openfreemap.org/styles/dark'),
+  fiord('Fiord', 'https://tiles.openfreemap.org/styles/fiord');
+
+  final String label;
+  final String styleUrl;
+
+  const _OpenFreeMapStyle(this.label, this.styleUrl);
 }
 
 class _MapPlace {
