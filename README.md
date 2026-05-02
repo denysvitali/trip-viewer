@@ -1,15 +1,14 @@
 # Trip Viewer
 
-Trip Viewer is an unofficial Flutter client for importing trip references from
-supported providers and viewing their itineraries. It includes timeline, map,
+Trip Viewer is a Flutter app for importing trip references from supported
+providers and viewing itinerary details in one place. It includes timeline, map,
 expenses, and packing-list views.
 
 Only Wanderlog imports are supported today. Imported trips are stored locally as
 provider references. Trip data is cached locally, refreshed manually on pull, and
 refreshed in the background when the cache is older than about 7 days.
 
-This project is not affiliated with, endorsed by, or sponsored by Wanderlog.
-Wanderlog is a trademark of its owner.
+This project is independent and not affiliated with any supported provider.
 
 ## Setup
 
