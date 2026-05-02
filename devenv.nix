@@ -7,7 +7,10 @@
     pkgs.jdk21
   ];
 
-  android.enable = false;
+  android = {
+    enable = true;
+    flutter.enable = true;
+  };
   dotenv.disableHint = true;
 
   env = {

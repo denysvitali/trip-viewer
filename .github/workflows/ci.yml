@@ -177,6 +177,7 @@ jobs:
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }}
 
       - name: Upload Debug APK
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: trip-viewer-debug-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
@@ -270,6 +271,7 @@ jobs:
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }}
 
       - name: Upload Release App Bundle
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: trip-viewer-release-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
@@ -310,6 +312,8 @@ jobs:
     name: Build Web
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    outputs:
+      web_artifact_uploaded: ${{ steps.upload_web.outcome == 'success' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -343,6 +347,8 @@ jobs:
         run: devenv shell -- flutter build web --release --base-href '/'
 
       - name: Upload Web Build
+        id: upload_web
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: web-build
@@ -353,7 +359,9 @@ jobs:
     name: Deploy to GitHub Pages
     needs: build-web
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    if: |
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') &&
+      needs.build-web.outputs.web_artifact_uploaded == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

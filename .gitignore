@@ -46,9 +46,11 @@ app.*.map.json
 
 # Ignore all generated Dart files
 **/*.g.dart
+lib/l10n/app_localizations*.dart
 .env
 android/app/.cxx
 
 # devenv
 .devenv/
 .devenv.flake.nix
+devenv.lock
