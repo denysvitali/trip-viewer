@@ -16,6 +16,7 @@
   env = {
     FLUTTER_ROOT = lib.mkForce "${pkgs.flutter.sdk}";
     DART_SDK = "${pkgs.flutter.sdk}/bin/cache/dart-sdk";
+    FLUTTER_SUPPRESS_ANALYTICS = "1";
   };
 
   enterShell = ''
@@ -25,6 +26,7 @@
       chmod +x "$FLUTTER_TESTER"
     fi
 
+    flutter config --no-analytics
     echo "Flutter version:"
     flutter --version
   '';
