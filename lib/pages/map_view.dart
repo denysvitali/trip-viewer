@@ -21,6 +21,7 @@ class _MapViewState extends State<MapView> {
 
   MapLibreMapController? _mapController;
   bool _mapInitialized = false;
+  bool _showPoints = true;
   bool _showTripLine = true;
   bool _show3dBuildings = true;
   bool _myLocationEnabled = false;
@@ -262,6 +263,8 @@ class _MapViewState extends State<MapView> {
       _annotationIdToPlaceKey.clear();
       _placeKeyToCircle.clear();
 
+      if (!_showPoints) return;
+
       final visiblePlaces = _visiblePlaces;
       final circles = await _mapController!.addCircles(
         visiblePlaces
@@ -334,6 +337,15 @@ class _MapViewState extends State<MapView> {
   void _toggleTripLine() {
     setState(() => _showTripLine = !_showTripLine);
     _updateRouteLine();
+  }
+
+  void _togglePoints() {
+    setState(() {
+      _showPoints = !_showPoints;
+      _selectedPlace = null;
+      _selectedCircle = null;
+    });
+    _addPlaceMarkers();
   }
 
   void _setMapStyle(_OpenFreeMapStyle style) {
@@ -454,7 +466,24 @@ class _MapViewState extends State<MapView> {
     );
 
     final circle = _placeKeyToCircle[place.key];
-    if (circle != null) _updateSelectedCircle(circle, place);
+    _updateSelectedCircle(circle, place);
+  }
+
+  int get _selectedVisibleIndex {
+    final selected = _selectedPlace;
+    if (selected == null) return -1;
+    return _visiblePlaces.indexWhere((place) => place.key == selected.key);
+  }
+
+  void _selectRelativePlace(int offset) {
+    final places = _visiblePlaces;
+    if (places.isEmpty) return;
+
+    final selectedIndex = _selectedVisibleIndex;
+    final baseIndex =
+        selectedIndex == -1 ? (offset > 0 ? -1 : 0) : selectedIndex;
+    final nextIndex = (baseIndex + offset).clamp(0, places.length - 1);
+    _zoomToPlace(places[nextIndex]);
   }
 
   void _fitVisiblePlaces() {
@@ -469,9 +498,8 @@ class _MapViewState extends State<MapView> {
     }
 
     final bounds = _boundsForPoints(_visiblePoints);
-    final size = MediaQuery.sizeOf(context);
-    final topPadding = _tripDays.isEmpty ? 32.0 : 92.0;
-    final bottomPadding = (size.height * 0.36).clamp(180.0, 320.0);
+    final topPadding = _tripDays.isEmpty ? 96.0 : 148.0;
+    final bottomPadding = _selectedPlace == null ? 112.0 : 188.0;
 
     _mapController!.animateCamera(
       CameraUpdate.newLatLngBounds(
@@ -546,46 +574,9 @@ class _MapViewState extends State<MapView> {
   @override
   Widget build(BuildContext context) {
     final visiblePlaces = _visiblePlaces;
+    final selectedIndex = _selectedVisibleIndex;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('${widget.tripPlan.title} - Map'),
-        actions: [
-          IconButton(
-            icon: Icon(_showTripLine ? Icons.route : Icons.route_outlined),
-            tooltip: _showTripLine ? 'Hide trip line' : 'Show trip line',
-            onPressed: visiblePlaces.length < 2 || _isUpdatingRoute
-                ? null
-                : _toggleTripLine,
-          ),
-          PopupMenuButton<Object>(
-            icon: const Icon(Icons.layers_outlined),
-            tooltip: 'Map style',
-            onSelected: (value) {
-              if (value is _OpenFreeMapStyle) {
-                _setMapStyle(value);
-              } else if (value == _MapMenuAction.toggle3d) {
-                _toggle3dBuildings();
-              }
-            },
-            itemBuilder: (context) => [
-              ..._OpenFreeMapStyle.values.map(
-                (style) => CheckedPopupMenuItem<_OpenFreeMapStyle>(
-                  value: style,
-                  checked: style == _selectedMapStyle,
-                  child: Text(style.label),
-                ),
-              ),
-              const PopupMenuDivider(),
-              CheckedPopupMenuItem<_MapMenuAction>(
-                value: _MapMenuAction.toggle3d,
-                checked: _show3dBuildings,
-                child: const Text('3D buildings'),
-              ),
-            ],
-          ),
-        ],
-      ),
       body: Stack(
         children: [
           MapLibreMap(
@@ -615,6 +606,23 @@ class _MapViewState extends State<MapView> {
               AnnotationType.fill,
             ],
           ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildTopBar(context, visiblePlaces),
+                  const SizedBox(height: 10),
+                  if (_mapInitialized) _buildDayFilter(context),
+                ],
+              ),
+            ),
+          ),
+          if (_mapInitialized) _buildLayerPanel(context, visiblePlaces),
+          if (_mapInitialized) _buildMapActions(context, visiblePlaces),
+          if (_mapInitialized && visiblePlaces.isNotEmpty)
+            _buildPlaceDock(context, visiblePlaces, selectedIndex),
           if (!_mapInitialized)
             Container(
               color: Colors.black.withValues(alpha: 0.25),
@@ -622,86 +630,189 @@ class _MapViewState extends State<MapView> {
                 child: CircularProgressIndicator(),
               ),
             ),
-          if (_mapInitialized) _buildDayFilter(context),
-          if (_mapInitialized) _buildPlacesSheet(context, visiblePlaces),
         ],
       ),
-      floatingActionButton: _mapInitialized
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton.small(
-                  heroTag: 'myLocation',
-                  onPressed: _isLocatingUser ? null : _showMyLocation,
-                  tooltip: 'Show my location',
-                  child: _isLocatingUser
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.my_location),
-                ),
-                if (visiblePlaces.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  FloatingActionButton(
-                    heroTag: 'fitPlaces',
-                    onPressed: () {
-                      _updateSelectedCircle(null, null);
-                      _fitVisiblePlaces();
-                    },
-                    tooltip: 'Show visible places',
-                    child: const Icon(Icons.zoom_out_map),
+    );
+  }
+
+  Widget _buildTopBar(BuildContext context, List<_MapPlace> visiblePlaces) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        _MapButton(
+          icon: Icons.arrow_back,
+          tooltip: 'Back',
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: DecoratedBox(
+            decoration: _overlayDecoration(context),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    widget.tripPlan.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    visiblePlaces.isEmpty
+                        ? 'No mapped places'
+                        : '${visiblePlaces.length} visible places',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall,
                   ),
                 ],
-              ],
-            )
-          : null,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        DecoratedBox(
+          decoration: _overlayDecoration(context),
+          child: PopupMenuButton<_OpenFreeMapStyle>(
+            icon: const Icon(Icons.map_outlined),
+            tooltip: 'Map style',
+            onSelected: _setMapStyle,
+            itemBuilder: (context) => _OpenFreeMapStyle.values
+                .map(
+                  (style) => CheckedPopupMenuItem<_OpenFreeMapStyle>(
+                    value: style,
+                    checked: style == _selectedMapStyle,
+                    child: Text(style.label),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildDayFilter(BuildContext context) {
     if (_tripDays.isEmpty) return const SizedBox.shrink();
 
+    return SizedBox(
+      height: 48,
+      child: DecoratedBox(
+        decoration: _overlayDecoration(context),
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              child: ChoiceChip(
+                label: const Text('All'),
+                selected: _selectedDay == null,
+                onSelected: (_) => _selectDay(null),
+              ),
+            ),
+            ..._tripDays.map(
+              (day) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                child: ChoiceChip(
+                  label: Text(DateFormat('EEE d').format(day)),
+                  selected: _isSameDay(_selectedDay, day),
+                  onSelected: (_) => _selectDay(day),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLayerPanel(BuildContext context, List<_MapPlace> visiblePlaces) {
     return SafeArea(
       child: Align(
-        alignment: Alignment.topCenter,
-        child: Container(
-          height: 56,
-          margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
-                blurRadius: 12,
-              ),
-            ],
-          ),
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: [
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-                child: ChoiceChip(
-                  label: const Text('All'),
-                  selected: _selectedDay == null,
-                  onSelected: (_) => _selectDay(null),
-                ),
-              ),
-              ..._tripDays.map(
-                (day) => Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-                  child: ChoiceChip(
-                    label: Text(DateFormat('EEE d').format(day)),
-                    selected: _isSameDay(_selectedDay, day),
-                    onSelected: (_) => _selectDay(day),
+        alignment: Alignment.centerRight,
+        child: Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: DecoratedBox(
+            decoration: _overlayDecoration(context),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    _showPoints
+                        ? Icons.location_on
+                        : Icons.location_off_outlined,
                   ),
+                  tooltip: _showPoints ? 'Hide points' : 'Show points',
+                  onPressed: visiblePlaces.isEmpty ? null : _togglePoints,
                 ),
+                IconButton(
+                  icon:
+                      Icon(_showTripLine ? Icons.route : Icons.route_outlined),
+                  tooltip: _showTripLine ? 'Hide trip line' : 'Show trip line',
+                  onPressed: visiblePlaces.length < 2 || _isUpdatingRoute
+                      ? null
+                      : _toggleTripLine,
+                ),
+                IconButton(
+                  icon: Icon(
+                    _show3dBuildings
+                        ? Icons.apartment
+                        : Icons.apartment_outlined,
+                  ),
+                  tooltip: _show3dBuildings
+                      ? 'Hide 3D buildings'
+                      : 'Show 3D buildings',
+                  onPressed: _toggle3dBuildings,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMapActions(BuildContext context, List<_MapPlace> visiblePlaces) {
+    final bottomOffset = _selectedPlace == null ? 20.0 : 116.0;
+
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.bottomRight,
+        child: Padding(
+          padding: EdgeInsets.only(right: 12, bottom: bottomOffset),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _MapButton(
+                icon: _isLocatingUser ? null : Icons.my_location,
+                tooltip: 'Show my location',
+                onPressed: _isLocatingUser ? null : _showMyLocation,
+                child: _isLocatingUser
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : null,
               ),
+              if (visiblePlaces.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _MapButton(
+                  icon: Icons.zoom_out_map,
+                  tooltip: 'Show visible places',
+                  onPressed: () {
+                    _updateSelectedCircle(null, null);
+                    _fitVisiblePlaces();
+                  },
+                ),
+              ],
             ],
           ),
         ),
@@ -709,104 +820,114 @@ class _MapViewState extends State<MapView> {
     );
   }
 
-  Widget _buildPlacesSheet(
-      BuildContext context, List<_MapPlace> visiblePlaces) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.32,
-      minChildSize: 0.14,
-      maxChildSize: 0.86,
-      builder: (context, controller) {
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.16),
-                blurRadius: 16,
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  margin: const EdgeInsets.only(top: 8, bottom: 6),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).dividerColor,
-                    borderRadius: BorderRadius.circular(2),
+  Widget _buildPlaceDock(
+    BuildContext context,
+    List<_MapPlace> visiblePlaces,
+    int selectedIndex,
+  ) {
+    final selectedPlace =
+        selectedIndex == -1 ? null : visiblePlaces[selectedIndex];
+
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 76, 12),
+          child: DecoratedBox(
+            decoration: _overlayDecoration(context),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left),
+                    tooltip: 'Previous place',
+                    onPressed: selectedIndex <= 0
+                        ? null
+                        : () => _selectRelativePlace(-1),
                   ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _selectedDay == null
-                            ? 'All places (${visiblePlaces.length})'
-                            : '${DateFormat('EEE, MMM d').format(_selectedDay!)} (${visiblePlaces.length})',
-                        style: Theme.of(context).textTheme.titleMedium,
+                  Expanded(
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: selectedPlace == null
+                          ? () => _zoomToPlace(visiblePlaces.first)
+                          : () => _zoomToPlace(selectedPlace),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 4,
+                        ),
+                        child: selectedPlace == null
+                            ? Text(
+                                'Tap to start place navigation',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${selectedPlace.displayOrder}. ${selectedPlace.place.name}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style:
+                                        Theme.of(context).textTheme.titleSmall,
+                                  ),
+                                  Text(
+                                    [
+                                      if (selectedPlace.time != null &&
+                                          selectedPlace.time!.isNotEmpty)
+                                        selectedPlace.time!,
+                                      selectedPlace.type.label,
+                                      '${selectedIndex + 1}/${visiblePlaces.length}',
+                                    ].join(' - '),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.open_in_full),
-                      tooltip: 'Fit places',
-                      onPressed:
-                          visiblePlaces.isEmpty ? null : _fitVisiblePlaces,
-                    ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.directions),
+                    tooltip: 'Get directions',
+                    onPressed: selectedPlace == null
+                        ? null
+                        : () => _openInMaps(selectedPlace.place),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right),
+                    tooltip: 'Next place',
+                    onPressed: selectedIndex >= visiblePlaces.length - 1 &&
+                            selectedIndex != -1
+                        ? null
+                        : () => _selectRelativePlace(1),
+                  ),
+                ],
               ),
-              if (visiblePlaces.isEmpty)
-                const Expanded(
-                  child: Center(
-                    child: Text('No mapped places for this day.'),
-                  ),
-                )
-              else
-                Expanded(
-                  child: ListView.separated(
-                    controller: controller,
-                    itemCount: visiblePlaces.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final place = visiblePlaces[index];
-                      final selected = _selectedPlace?.key == place.key;
-                      return ListTile(
-                        selected: selected,
-                        leading: CircleAvatar(
-                          child: Text(place.displayOrder),
-                        ),
-                        title: Text(place.place.name),
-                        subtitle: Text(
-                          [
-                            if (place.time != null && place.time!.isNotEmpty)
-                              place.time!,
-                            place.type.label,
-                            place.place.formattedAddress,
-                          ].join(' - '),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        onTap: () => _zoomToPlace(place),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.directions),
-                          tooltip: 'Get directions',
-                          onPressed: () => _openInMaps(place.place),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-            ],
+            ),
           ),
-        );
-      },
+        ),
+      ),
+    );
+  }
+
+  BoxDecoration _overlayDecoration(BuildContext context) {
+    return BoxDecoration(
+      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.94),
+      borderRadius: BorderRadius.circular(8),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.16),
+          blurRadius: 16,
+          offset: const Offset(0, 4),
+        ),
+      ],
     );
   }
 
@@ -823,8 +944,43 @@ class _MapViewState extends State<MapView> {
   }
 }
 
-enum _MapMenuAction {
-  toggle3d,
+class _MapButton extends StatelessWidget {
+  final IconData? icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final Widget? child;
+
+  const _MapButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: SizedBox.square(
+        dimension: 48,
+        child: IconButton(
+          icon: child ?? Icon(icon),
+          tooltip: tooltip,
+          onPressed: onPressed,
+        ),
+      ),
+    );
+  }
 }
 
 enum _OpenFreeMapStyle {
