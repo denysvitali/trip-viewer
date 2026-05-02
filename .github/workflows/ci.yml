@@ -276,7 +276,6 @@ jobs:
       - name: Build Debug APK
         run: |
           flutter build apk --debug --no-pub \
-            --flavor ${{ steps.flavor.outputs.FLAVOR }} \
             --target-platform android-arm64 \
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }} \
             --dart-define=SENTRY_RELEASE=happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
@@ -290,7 +289,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: happy-flutter-debug-${{ steps.flavor.outputs.FLAVOR }}-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
-          path: build/app/outputs/flutter-apk/app-${{ steps.flavor.outputs.FLAVOR }}-debug.apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 14
 
   build-release:
@@ -416,7 +415,6 @@ jobs:
           GRADLE_OPTS: '-Dorg.gradle.jvmargs=-Xmx4g'
         run: |
           flutter build apk --release --no-pub \
-            --flavor ${{ steps.flavor.outputs.FLAVOR }} \
             --target-platform android-arm64 \
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }} \
             --dart-define=SENTRY_RELEASE=happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }} \
@@ -437,7 +435,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: happy-flutter-release-${{ steps.flavor.outputs.FLAVOR }}-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
-          path: build/app/outputs/flutter-apk/app-${{ steps.flavor.outputs.FLAVOR }}-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 14
 
       - name: Upload debug info artifact
@@ -466,8 +464,8 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: false
-          files: build/app/outputs/flutter-apk/app-${{ steps.flavor.outputs.FLAVOR }}-release.apk
-        env:
+          files: build/app/outputs/flutter-apk/app-release.apk
+          env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-web:
