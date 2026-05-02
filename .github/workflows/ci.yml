@@ -178,6 +178,8 @@ jobs:
     name: Build Debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      KEYSTORE_KEY_ALIAS: upload
     # Run on push/PR events (but not tags), or workflow_dispatch with debug or both selected
     if: |
       (github.event_name != 'workflow_dispatch' &&
@@ -283,7 +285,6 @@ jobs:
           KEYSTORE_PATH: ${{ steps.debug_keystore.outputs.KEYSTORE_PATH }}
           KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
           KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
-          KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v7
@@ -298,6 +299,7 @@ jobs:
     timeout-minutes: 30
     env:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      KEYSTORE_KEY_ALIAS: upload
     # Run on main pushes, workflow_dispatch (release/both), and version tags.
     if: |
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
@@ -411,7 +413,6 @@ jobs:
           KEYSTORE_PATH: ${{ github.workspace }}/release-keystore.jks
           KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
           KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
-          KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
           GRADLE_OPTS: '-Dorg.gradle.jvmargs=-Xmx4g'
         run: |
           flutter build apk --release --no-pub \

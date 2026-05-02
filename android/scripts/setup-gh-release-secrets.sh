@@ -9,7 +9,6 @@ Usage:
 
 Environment variables:
   KEYSTORE_PATH              Path to release keystore (default: upload.jks)
-  KEYSTORE_KEY_ALIAS         Keystore key alias (default: upload)
   KEYSTORE_STORE_PASSWORD    Keystore store password (auto-generated when creating)
   KEYSTORE_KEY_PASSWORD      Keystore key password (auto-generated when creating)
   KEYSTORE_VALIDITY_DAYS     Validity days for new key (default: 10000)
@@ -21,7 +20,7 @@ Environment variables:
 Options:
   --create-keystore  Force generation of a new keystore via keytool.
   --set-secrets     Push KEYSTORE_BASE64, KEYSTORE_STORE_PASSWORD,
-                    KEYSTORE_KEY_PASSWORD, KEYSTORE_KEY_ALIAS to GitHub secrets.
+                    KEYSTORE_KEY_PASSWORD to GitHub secrets.
   --force           Overwrite existing keystore when creating.
   -h, --help        Show this help.
 EOF_USAGE
@@ -147,12 +146,12 @@ cat <<EOF_VALUES
 export KEYSTORE_BASE64="$KEYSTORE_BASE64"
 export KEYSTORE_STORE_PASSWORD="$KEYSTORE_STORE_PASSWORD"
 export KEYSTORE_KEY_PASSWORD="$KEYSTORE_KEY_PASSWORD"
-export KEYSTORE_KEY_ALIAS="$KEY_ALIAS"
 EOF_VALUES
 
 echo
 
-echo "Apply each value manually in GitHub Actions secrets (KEYSTORE_BASE64, KEYSTORE_STORE_PASSWORD, KEYSTORE_KEY_PASSWORD, KEYSTORE_KEY_ALIAS)."
+echo "Apply each value manually in GitHub Actions secrets (KEYSTORE_BASE64, KEYSTORE_STORE_PASSWORD, KEYSTORE_KEY_PASSWORD)."
+echo "Set KEYSTORE_KEY_ALIAS as a regular workflow var (not a secret)."
 
 echo
 
@@ -174,6 +173,6 @@ export KEYSTORE_KEY_ALIAS="$KEY_ALIAS"
 gh secret set KEYSTORE_BASE64 --repo "$REPO" --body "$KEYSTORE_BASE64"
 gh secret set KEYSTORE_STORE_PASSWORD --repo "$REPO" --body "$KEYSTORE_STORE_PASSWORD"
 gh secret set KEYSTORE_KEY_PASSWORD --repo "$REPO" --body "$KEYSTORE_KEY_PASSWORD"
-gh secret set KEYSTORE_KEY_ALIAS --repo "$REPO" --body "$KEY_ALIAS"
+echo "Set KEYSTORE_KEY_ALIAS in CI vars as: $KEY_ALIAS"
 
-echo "Uploaded KEYSTORE_BASE64, KEYSTORE_STORE_PASSWORD, KEYSTORE_KEY_PASSWORD, KEYSTORE_KEY_ALIAS to $REPO"
+echo "Uploaded KEYSTORE_BASE64, KEYSTORE_STORE_PASSWORD, KEYSTORE_KEY_PASSWORD to $REPO"

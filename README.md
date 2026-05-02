@@ -37,7 +37,6 @@ secrets with:
 - `KEYSTORE_BASE64`
 - `KEYSTORE_STORE_PASSWORD`
 - `KEYSTORE_KEY_PASSWORD`
-- `KEYSTORE_KEY_ALIAS`
 
 You can generate them and get ready-to-copy export lines in one step. If no keystore
 exists at `KEYSTORE_PATH`, it auto-generates one.
@@ -56,6 +55,8 @@ export KEYSTORE_DNAME='CN=TripViewer, OU=CI, O=TripViewer, L=Unknown, ST=Unknown
 ./android/scripts/setup-gh-release-secrets.sh --create-keystore --force
 ```
 
+`KEYSTORE_KEY_ALIAS` is fixed in CI and should be set there as a plain environment var (not a secret).
+
 Or if you already have a keystore:
 
 ```bash
@@ -63,7 +64,6 @@ cd /path/to/wanderlog_alt
 export KEYSTORE_PATH=upload.jks
 export KEYSTORE_STORE_PASSWORD=...
 export KEYSTORE_KEY_PASSWORD=...
-export KEYSTORE_KEY_ALIAS=...
 ./android/scripts/setup-gh-release-secrets.sh
 ```
 
@@ -73,7 +73,6 @@ To also upload to GitHub secrets directly:
 export KEYSTORE_PATH=upload.jks
 export KEYSTORE_STORE_PASSWORD=...
 export KEYSTORE_KEY_PASSWORD=...
-export KEYSTORE_KEY_ALIAS=...
 export GITHUB_REPOSITORY=owner/repo
 ./android/scripts/setup-gh-release-secrets.sh --set-secrets
 ```
