@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:trip_viewer/models/trip_plan.dart';
@@ -18,8 +17,6 @@ class MapView extends StatefulWidget {
 }
 
 class _MapViewState extends State<MapView> {
-  static const _placePinImageName = 'place-pin';
-
   static final _streetStyle = jsonEncode({
     'version': 8,
     'sources': {
@@ -42,18 +39,16 @@ class _MapViewState extends State<MapView> {
 
   MapLibreMapController? _mapController;
   bool _mapInitialized = false;
-  bool _pinImageAdded = false;
   bool _showTripLine = true;
   bool _isUpdatingRoute = false;
-  Uint8List? _pinImageBytes;
 
   late final List<_MapPlace> _allPlaces;
   late final List<DateTime> _tripDays;
   DateTime? _selectedDay;
 
   final Map<String, String> _annotationIdToPlaceKey = {};
-  final Map<String, Symbol> _placeKeyToAnnotation = {};
-  Symbol? _selectedAnnotation;
+  final Map<String, Circle> _placeKeyToCircle = {};
+  Circle? _selectedCircle;
   _MapPlace? _selectedPlace;
 
   LatLng _centerPoint = const LatLng(41.9028, 12.4964);
@@ -75,18 +70,6 @@ class _MapViewState extends State<MapView> {
     _tripDays = _extractTripDays();
     if (_tripDays.isNotEmpty) _selectedDay = null;
     _calculateCenter(_visiblePoints);
-    _loadPinImage();
-  }
-
-  Future<void> _loadPinImage() async {
-    try {
-      final byteData = await rootBundle.load('assets/images/map_pin.png');
-      _pinImageBytes = byteData.buffer.asUint8List();
-      if (_mapInitialized) _refreshMapContent();
-    } catch (e) {
-      log('Error loading pin image: $e');
-      _showErrorSnackbar('Could not load map pin image.');
-    }
   }
 
   List<_MapPlace> _extractPlaces() {
@@ -207,7 +190,7 @@ class _MapViewState extends State<MapView> {
     setState(() {
       _selectedDay = day;
       _selectedPlace = null;
-      _selectedAnnotation = null;
+      _selectedCircle = null;
       _calculateCenter(_visiblePoints);
     });
     _refreshMapContent(fitCamera: true);
@@ -229,44 +212,53 @@ class _MapViewState extends State<MapView> {
   }
 
   Future<void> _addPlaceMarkers() async {
-    if (!_mapInitialized || _mapController == null || _pinImageBytes == null) {
+    if (!_mapInitialized || _mapController == null) {
       return;
     }
 
     try {
       await _mapController!.clearSymbols();
+      await _mapController!.clearCircles();
       _annotationIdToPlaceKey.clear();
-      _placeKeyToAnnotation.clear();
-
-      if (!_pinImageAdded) {
-        await _mapController!.addImage(_placePinImageName, _pinImageBytes!);
-        _pinImageAdded = true;
-      }
+      _placeKeyToCircle.clear();
 
       final visiblePlaces = _visiblePlaces;
-      final annotations = await _mapController!.addSymbols(
+      final circles = await _mapController!.addCircles(
         visiblePlaces
             .map(
-              (place) => SymbolOptions(
+              (place) => CircleOptions(
                 geometry: place.point,
-                iconImage: _placePinImageName,
-                iconSize: _selectedPlace?.key == place.key ? 1.4 : 1.0,
-                textField: place.displayOrder,
-                textOffset: const Offset(0, -1.7),
-                textColor: '#111827',
-                textHaloColor: '#ffffff',
-                textHaloWidth: 1.5,
-                textSize: 12,
+                circleRadius: _selectedPlace?.key == place.key ? 14 : 10,
+                circleColor: place.markerColor,
+                circleOpacity: 0.96,
+                circleStrokeColor: '#ffffff',
+                circleStrokeWidth: 3,
+                circleStrokeOpacity: 1,
               ),
             )
             .toList(),
       );
 
-      for (var i = 0; i < annotations.length; i++) {
-        final annotation = annotations[i];
+      await _mapController!.addSymbols(
+        visiblePlaces
+            .map(
+              (place) => SymbolOptions(
+                geometry: place.point,
+                textField: place.displayOrder,
+                textColor: '#ffffff',
+                textHaloColor: place.markerColor,
+                textHaloWidth: 1,
+                textSize: 11,
+              ),
+            )
+            .toList(),
+      );
+
+      for (var i = 0; i < circles.length; i++) {
+        final circle = circles[i];
         final place = visiblePlaces[i];
-        _annotationIdToPlaceKey[annotation.id] = place.key;
-        _placeKeyToAnnotation[place.key] = annotation;
+        _annotationIdToPlaceKey[circle.id] = place.key;
+        _placeKeyToCircle[place.key] = circle;
       }
     } catch (e) {
       log('Error adding place markers: $e');
@@ -304,8 +296,8 @@ class _MapViewState extends State<MapView> {
     _updateRouteLine();
   }
 
-  void _handleSymbolClick(Symbol annotation) {
-    final placeKey = _annotationIdToPlaceKey[annotation.id];
+  void _handleCircleClick(Circle circle) {
+    final placeKey = _annotationIdToPlaceKey[circle.id];
     if (placeKey == null) return;
 
     _MapPlace? place;
@@ -316,35 +308,35 @@ class _MapViewState extends State<MapView> {
       }
     }
 
-    final selectedAnnotation = _placeKeyToAnnotation[placeKey];
-    if (place != null && selectedAnnotation != null) {
-      _updateSelectedAnnotation(selectedAnnotation, place);
+    final selectedCircle = _placeKeyToCircle[placeKey];
+    if (place != null && selectedCircle != null) {
+      _updateSelectedCircle(selectedCircle, place);
     }
   }
 
-  Future<void> _updateSelectedAnnotation(
-    Symbol? newAnnotation,
+  Future<void> _updateSelectedCircle(
+    Circle? newCircle,
     _MapPlace? newPlace,
   ) async {
     if (_mapController == null) return;
 
-    if (_selectedAnnotation != null && _selectedAnnotation != newAnnotation) {
-      await _mapController!.updateSymbol(
-        _selectedAnnotation!,
-        const SymbolOptions(iconSize: 1.0),
+    if (_selectedCircle != null && _selectedCircle != newCircle) {
+      await _mapController!.updateCircle(
+        _selectedCircle!,
+        const CircleOptions(circleRadius: 10),
       );
     }
 
-    if (newAnnotation != null) {
-      await _mapController!.updateSymbol(
-        newAnnotation,
-        const SymbolOptions(iconSize: 1.4),
+    if (newCircle != null) {
+      await _mapController!.updateCircle(
+        newCircle,
+        const CircleOptions(circleRadius: 14),
       );
     }
 
     if (mounted) {
       setState(() {
-        _selectedAnnotation = newAnnotation;
+        _selectedCircle = newCircle;
         _selectedPlace = newPlace;
       });
     }
@@ -353,13 +345,13 @@ class _MapViewState extends State<MapView> {
   void _zoomToPlace(_MapPlace place) {
     _mapController?.animateCamera(
       CameraUpdate.newCameraPosition(
-        CameraPosition(target: place.point, zoom: 15),
+        CameraPosition(target: place.point, zoom: 15, tilt: 45),
       ),
       duration: const Duration(milliseconds: 500),
     );
 
-    final annotation = _placeKeyToAnnotation[place.key];
-    if (annotation != null) _updateSelectedAnnotation(annotation, place);
+    final circle = _placeKeyToCircle[place.key];
+    if (circle != null) _updateSelectedCircle(circle, place);
   }
 
   void _fitVisiblePlaces() {
@@ -475,6 +467,7 @@ class _MapViewState extends State<MapView> {
             initialCameraPosition: CameraPosition(
               target: _centerPoint,
               zoom: 10,
+              tilt: 35,
             ),
             compassEnabled: true,
             rotateGesturesEnabled: true,
@@ -494,7 +487,7 @@ class _MapViewState extends State<MapView> {
       floatingActionButton: _mapInitialized && visiblePlaces.isNotEmpty
           ? FloatingActionButton(
               onPressed: () {
-                _updateSelectedAnnotation(null, null);
+                _updateSelectedCircle(null, null);
                 _fitVisiblePlaces();
               },
               tooltip: 'Show visible places',
@@ -657,12 +650,11 @@ class _MapViewState extends State<MapView> {
 
   void _onMapCreated(MapLibreMapController controller) {
     _mapController = controller;
-    controller.onSymbolTapped.add(_handleSymbolClick);
+    controller.onCircleTapped.add(_handleCircleClick);
   }
 
   void _onStyleLoaded() {
     _mapInitialized = true;
-    _pinImageAdded = false;
     if (mounted) setState(() {});
     _refreshMapContent(fitCamera: true);
   }
@@ -688,6 +680,19 @@ class _MapPlace {
   });
 
   String get displayOrder => order.toString();
+
+  String get markerColor {
+    switch (type) {
+      case _MapPlaceType.hotel:
+        return '#7C3AED';
+      case _MapPlaceType.transit:
+        return '#059669';
+      case _MapPlaceType.flight:
+        return '#EA580C';
+      case _MapPlaceType.place:
+        return '#2563EB';
+    }
+  }
 }
 
 enum _MapPlaceType {
