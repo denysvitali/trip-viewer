@@ -62,15 +62,15 @@ jobs:
         run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
 
       - name: Get dependencies
-        run: nix run github:cachix/devenv/latest -- devenv shell -- flutter pub get
+        run: nix run github:cachix/devenv/latest -- shell -- flutter pub get
 
       - name: Generate code
         run: |
-          nix run github:cachix/devenv/latest -- devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
-          nix run github:cachix/devenv/latest -- devenv shell -- flutter gen-l10n
+          nix run github:cachix/devenv/latest -- shell -- flutter pub run build_runner build --delete-conflicting-outputs
+          nix run github:cachix/devenv/latest -- shell -- flutter gen-l10n
 
       - name: Analyze code
-        run: nix run github:cachix/devenv/latest -- devenv shell -- flutter analyze --no-fatal-infos --no-fatal-warnings
+        run: nix run github:cachix/devenv/latest -- shell -- flutter analyze --no-fatal-infos --no-fatal-warnings
 
   test:
     name: Run Tests
@@ -102,15 +102,15 @@ jobs:
         run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
 
       - name: Get dependencies
-        run: nix run github:cachix/devenv/latest -- devenv shell -- flutter pub get
+        run: nix run github:cachix/devenv/latest -- shell -- flutter pub get
 
       - name: Generate code
         run: |
-          nix run github:cachix/devenv/latest -- devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
-          nix run github:cachix/devenv/latest -- devenv shell -- flutter gen-l10n
+          nix run github:cachix/devenv/latest -- shell -- flutter pub run build_runner build --delete-conflicting-outputs
+          nix run github:cachix/devenv/latest -- shell -- flutter gen-l10n
 
       - name: Run tests
-        run: nix run github:cachix/devenv/latest -- devenv shell -- flutter test
+        run: nix run github:cachix/devenv/latest -- shell -- flutter test
 
   build-debug:
     name: Build Debug APK
@@ -179,20 +179,20 @@ jobs:
 
       - name: Setup Flutter SDK path
         run: |
-          FLUTTER_SDK=$(nix run github:cachix/devenv/latest -- devenv shell -- printenv FLUTTER_ROOT 2>/dev/null || echo "$HOME/.pub-cache/flutter")
+          FLUTTER_SDK=$(nix run github:cachix/devenv/latest -- shell -- printenv FLUTTER_ROOT 2>/dev/null || echo "$HOME/.pub-cache/flutter")
           echo "flutter.sdk=$FLUTTER_SDK" > android/local.properties
 
       - name: Get dependencies
-        run: nix run github:cachix/devenv/latest -- devenv shell -- flutter pub get
+        run: nix run github:cachix/devenv/latest -- shell -- flutter pub get
 
       - name: Generate code
         run: |
-          nix run github:cachix/devenv/latest -- devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
-          nix run github:cachix/devenv/latest -- devenv shell -- flutter gen-l10n
+          nix run github:cachix/devenv/latest -- shell -- flutter pub run build_runner build --delete-conflicting-outputs
+          nix run github:cachix/devenv/latest -- shell -- flutter gen-l10n
 
       - name: Build Debug APK
         run: |
-          nix run github:cachix/devenv/latest -- devenv shell -- flutter build apk --debug --no-pub \
+          nix run github:cachix/devenv/latest -- shell -- flutter build apk --debug --no-pub \
             --target-platform android-arm64 \
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }}
 
@@ -270,16 +270,16 @@ jobs:
 
       - name: Setup Flutter SDK path
         run: |
-          FLUTTER_SDK=$(nix run github:cachix/devenv/latest -- devenv shell -- printenv FLUTTER_ROOT 2>/dev/null || echo "$HOME/.pub-cache/flutter")
+          FLUTTER_SDK=$(nix run github:cachix/devenv/latest -- shell -- printenv FLUTTER_ROOT 2>/dev/null || echo "$HOME/.pub-cache/flutter")
           echo "flutter.sdk=$FLUTTER_SDK" > android/local.properties
 
       - name: Get dependencies
-        run: nix run github:cachix/devenv/latest -- devenv shell -- flutter pub get
+        run: nix run github:cachix/devenv/latest -- shell -- flutter pub get
 
       - name: Generate code
         run: |
-          nix run github:cachix/devenv/latest -- devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
-          nix run github:cachix/devenv/latest -- devenv shell -- flutter gen-l10n
+          nix run github:cachix/devenv/latest -- shell -- flutter pub run build_runner build --delete-conflicting-outputs
+          nix run github:cachix/devenv/latest -- shell -- flutter gen-l10n
 
       - name: Decrypt keystore
         run: |
@@ -297,7 +297,7 @@ jobs:
 
       - name: Build Release App Bundle
         run: |
-          nix run github:cachix/devenv/latest -- devenv shell -- flutter build appbundle --release --no-pub \
+          nix run github:cachix/devenv/latest -- shell -- flutter build appbundle --release --no-pub \
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }}
 
       - name: Upload Release App Bundle
@@ -371,15 +371,15 @@ jobs:
         run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
 
       - name: Get dependencies
-        run: nix run github:cachix/devenv/latest -- devenv shell -- flutter pub get
+        run: nix run github:cachix/devenv/latest -- shell -- flutter pub get
 
       - name: Generate code
         run: |
-          nix run github:cachix/devenv/latest -- devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
-          nix run github:cachix/devenv/latest -- devenv shell -- flutter gen-l10n
+          nix run github:cachix/devenv/latest -- shell -- flutter pub run build_runner build --delete-conflicting-outputs
+          nix run github:cachix/devenv/latest -- shell -- flutter gen-l10n
 
       - name: Build Web
-        run: nix run github:cachix/devenv/latest -- devenv shell -- flutter build web --release --base-href '/'
+        run: nix run github:cachix/devenv/latest -- shell -- flutter build web --release --base-href '/'
 
       - name: Upload Web Build
         id: upload_web
