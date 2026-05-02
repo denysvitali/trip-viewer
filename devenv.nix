@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
 
 {
   packages = [
@@ -14,7 +14,8 @@
   dotenv.disableHint = true;
 
   env = {
-    DART_SDK = "${pkgs.flutter.out}/bin/cache/dart-sdk";
+    FLUTTER_ROOT = lib.mkForce "${pkgs.flutter.sdk}";
+    DART_SDK = "${pkgs.flutter.sdk}/bin/cache/dart-sdk";
   };
 
   enterShell = ''
