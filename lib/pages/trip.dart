@@ -49,6 +49,7 @@ class TripPageState extends State<TripPage> {
   final PageController _pageController = PageController();
   final ScrollController _calendarScrollController = ScrollController();
   int _currentPage = 0;
+  bool _compactMode = false;
 
   @override
   void initState() {
@@ -151,12 +152,11 @@ class TripPageState extends State<TripPage> {
 
   void _updateTripData(Map<String, dynamic> tripData) {
     final fetchedPlan = TripPlanResponse.fromJson(tripData);
-    final dates =
-        fetchedPlan.tripPlan.itinerary.sections
-            .where((s) => s.date != null)
-            .map((s) => DateTime.parse(s.date!))
-            .toList()
-          ..sort();
+    final dates = fetchedPlan.tripPlan.itinerary.sections
+        .where((s) => s.date != null)
+        .map((s) => DateTime.parse(s.date!))
+        .toList()
+      ..sort();
 
     // Collect unscheduled sections (those without a date, with non-empty blocks)
     final unscheduled = fetchedPlan.tripPlan.itinerary.sections
@@ -165,8 +165,7 @@ class TripPageState extends State<TripPage> {
 
     final mostRelevantDayIndex = _findMostRelevantDayIndex(dates);
     // Offset by unscheduled sections count
-    final initialPage =
-        unscheduled.length +
+    final initialPage = unscheduled.length +
         (mostRelevantDayIndex >= 0 ? mostRelevantDayIndex : 0);
 
     setState(() {
@@ -205,8 +204,7 @@ class TripPageState extends State<TripPage> {
   void _scrollCalendarToIndex(int index) {
     if (!_calendarScrollController.hasClients) return;
     const itemWidth = 56.0; // 48 width + 8 padding
-    final offset =
-        (index * itemWidth) -
+    final offset = (index * itemWidth) -
         (MediaQuery.of(context).size.width / 2) +
         (itemWidth / 2);
     _calendarScrollController.animateTo(
@@ -290,12 +288,21 @@ class TripPageState extends State<TripPage> {
               Text(
                 'Updated ${timeago.format(_lastFetchTime!)}',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
               ),
           ],
         ),
         actions: [
+          IconButton(
+            icon: Icon(
+              _compactMode
+                  ? Icons.view_agenda_outlined
+                  : Icons.format_list_bulleted,
+            ),
+            tooltip: _compactMode ? 'Comfortable mode' : 'Compact mode',
+            onPressed: () => setState(() => _compactMode = !_compactMode),
+          ),
           IconButton(
             icon: const Icon(Icons.map_outlined),
             tooltip: 'Map View',
@@ -439,6 +446,7 @@ class TripPageState extends State<TripPage> {
             transit: transitByDate[date] ?? [],
             placeMetadata: pm,
             expensesById: expensesById,
+            compactMode: _compactMode,
             onRefresh: () => _fetchTripData(),
           );
         },
@@ -525,11 +533,9 @@ class TripPageState extends State<TripPage> {
           DateTime checkInDate = DateTime.parse(block.hotel!.checkIn!);
           DateTime checkOutDate = DateTime.parse(block.hotel!.checkOut!);
           if (checkInDate.isAfter(checkOutDate)) continue;
-          for (
-            DateTime date = checkInDate;
-            date.isBefore(checkOutDate);
-            date = date.add(const Duration(days: 1))
-          ) {
+          for (DateTime date = checkInDate;
+              date.isBefore(checkOutDate);
+              date = date.add(const Duration(days: 1))) {
             result.putIfAbsent(date, () => []).add(block);
           }
         }
@@ -589,6 +595,7 @@ class DayView extends StatefulWidget {
   final List<TransitBlock> transit;
   final Map<String, PlaceMetadata> placeMetadata;
   final Map<int, Expense> expensesById;
+  final bool compactMode;
   final Future<void> Function()? onRefresh;
 
   const DayView({
@@ -600,6 +607,7 @@ class DayView extends StatefulWidget {
     required this.transit,
     required this.placeMetadata,
     required this.expensesById,
+    this.compactMode = false,
     this.onRefresh,
   });
 
@@ -687,6 +695,7 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
                     placeBlock: b,
                     metadata: widget.placeMetadata[b.place.placeId],
                     expense: widget.expensesById[b.expenseId],
+                    compact: widget.compactMode,
                   ),
                 );
               }
@@ -706,8 +715,7 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
 
   Widget _buildHeader(ThemeData theme) {
     final today = DateTime.now();
-    final isToday =
-        widget.date.year == today.year &&
+    final isToday = widget.date.year == today.year &&
         widget.date.month == today.month &&
         widget.date.day == today.day;
 
@@ -1145,8 +1153,7 @@ class CalendarDay extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final today = DateTime.now();
-    final isToday =
-        date.year == today.year &&
+    final isToday = date.year == today.year &&
         date.month == today.month &&
         date.day == today.day;
 
@@ -1162,8 +1169,8 @@ class CalendarDay extends StatelessWidget {
             color: isSelected
                 ? theme.colorScheme.primary
                 : isToday
-                ? theme.colorScheme.primaryContainer.withAlpha(100)
-                : Colors.transparent,
+                    ? theme.colorScheme.primaryContainer.withAlpha(100)
+                    : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             border: isToday && !isSelected
                 ? Border.all(color: theme.colorScheme.primary, width: 1.5)

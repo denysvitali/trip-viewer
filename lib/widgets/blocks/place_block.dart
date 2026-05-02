@@ -9,12 +9,14 @@ class PlaceBlockWidget extends StatefulWidget {
   final PlaceBlock placeBlock;
   final PlaceMetadata? metadata;
   final Expense? expense;
+  final bool compact;
 
   const PlaceBlockWidget({
     super.key,
     required this.placeBlock,
     required this.metadata,
     this.expense,
+    this.compact = false,
   });
 
   @override
@@ -27,6 +29,14 @@ class _PlaceBlockWidgetState extends State<PlaceBlockWidget> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    if (widget.compact) {
+      return GenericBlock(
+        block: widget.placeBlock,
+        accentColor: AppTheme.placeColor,
+        child: _buildCompactRow(theme),
+      );
+    }
 
     return GenericBlock(
       block: widget.placeBlock,
@@ -94,8 +104,7 @@ class _PlaceBlockWidgetState extends State<PlaceBlockWidget> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(Icons.location_on_outlined,
-                          size: 16,
-                          color: theme.colorScheme.onSurfaceVariant),
+                          size: 16, color: theme.colorScheme.onSurfaceVariant),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -114,6 +123,182 @@ class _PlaceBlockWidgetState extends State<PlaceBlockWidget> {
         ],
       ),
     );
+  }
+
+  Widget _buildCompactRow(ThemeData theme) {
+    final details = _compactDetails();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildCompactLeading(theme),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.placeBlock.place.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (widget.placeBlock.startTime != null) ...[
+                      const SizedBox(width: 8),
+                      _buildCompactTime(theme),
+                    ],
+                  ],
+                ),
+                if (details.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    details,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (widget.metadata?.rating != null)
+                      _buildCompactMeta(
+                        theme,
+                        Icons.star_rounded,
+                        '${widget.metadata!.rating}',
+                        iconColor: Colors.amber,
+                      ),
+                    if (widget.expense != null)
+                      _buildCompactMeta(
+                        theme,
+                        Icons.receipt_outlined,
+                        widget.expense!.amount.format(),
+                      ),
+                    if (widget.placeBlock.place.formattedAddress.isNotEmpty)
+                      _buildCompactMeta(
+                        theme,
+                        Icons.location_on_outlined,
+                        widget.placeBlock.place.formattedAddress,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactLeading(ThemeData theme) {
+    final hasImage = widget.placeBlock.imageKeys.isNotEmpty ||
+        (widget.metadata != null && widget.metadata!.imageKeys.isNotEmpty);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: hasImage
+            ? PlaceImage(block: widget.placeBlock, metadata: widget.metadata)
+            : ColoredBox(
+                color: theme.colorScheme.primaryContainer,
+                child: Icon(
+                  Icons.place,
+                  size: 22,
+                  color: theme.colorScheme.onPrimaryContainer,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildCompactTime(ThemeData theme) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.schedule,
+            size: 14, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 4),
+        Text(
+          [
+            widget.placeBlock.startTime,
+            if (widget.placeBlock.endTime != null) widget.placeBlock.endTime
+          ].join(' - '),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompactMeta(
+    ThemeData theme,
+    IconData icon,
+    String label, {
+    Color? iconColor,
+  }) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 220),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: iconColor ?? theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _compactDetails() {
+    final placeText = _plainPlaceText();
+    if (placeText.isNotEmpty) return placeText;
+    final description = widget.placeBlock.description;
+    if (description != null && description.trim().isNotEmpty) {
+      return description.trim();
+    }
+    final metadataDescription =
+        widget.metadata?.description ?? widget.metadata?.generatedDescription;
+    if (metadataDescription != null && metadataDescription.trim().isNotEmpty) {
+      return metadataDescription.trim();
+    }
+    final hotel = widget.placeBlock.hotel;
+    if (hotel == null) return '';
+    return [
+      if (hotel.checkIn != null) 'Check-in ${hotel.checkIn}',
+      if (hotel.checkOut != null) 'Check-out ${hotel.checkOut}',
+      if (hotel.confirmationNumber != null)
+        'Confirmation ${hotel.confirmationNumber}',
+    ].join(', ');
   }
 
   Widget _buildHeader(ThemeData theme) {
@@ -148,9 +333,14 @@ class _PlaceBlockWidgetState extends State<PlaceBlockWidget> {
   bool _hasPlaceText() {
     final text = widget.placeBlock.text;
     if (text == null) return false;
-    final content =
-        text.ops.map((op) => op.insert).join().trim();
+    final content = text.ops.map((op) => op.insert).join().trim();
     return content.isNotEmpty;
+  }
+
+  String _plainPlaceText() {
+    final text = widget.placeBlock.text;
+    if (text == null) return '';
+    return text.ops.map((op) => op.insert).join().trim();
   }
 
   Widget _buildPlaceText(ThemeData theme) {
@@ -164,8 +354,8 @@ class _PlaceBlockWidgetState extends State<PlaceBlockWidget> {
         const SizedBox(width: 4),
         Text(
           '${widget.metadata!.rating}',
-          style: theme.textTheme.bodySmall
-              ?.copyWith(fontWeight: FontWeight.w600),
+          style:
+              theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
         ),
         if (widget.metadata!.numRatings != null) ...[
           const SizedBox(width: 4),
