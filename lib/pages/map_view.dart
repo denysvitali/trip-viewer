@@ -1,11 +1,12 @@
+import 'dart:convert';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Import for rootBundle
-import 'package:geolocator/geolocator.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:trip_viewer/models/trip_plan.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MapView extends StatefulWidget {
   final TripPlan tripPlan;
@@ -19,363 +20,329 @@ class MapView extends StatefulWidget {
 class _MapViewState extends State<MapView> {
   static const _placePinImageName = 'place-pin';
 
+  static final _streetStyle = jsonEncode({
+    'version': 8,
+    'sources': {
+      'osm': {
+        'type': 'raster',
+        'tiles': ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        'tileSize': 256,
+        'attribution': 'OpenStreetMap contributors',
+        'maxzoom': 19,
+      },
+    },
+    'layers': [
+      {
+        'id': 'osm',
+        'type': 'raster',
+        'source': 'osm',
+      },
+    ],
+  });
+
   MapLibreMapController? _mapController;
   bool _mapInitialized = false;
-  bool _coordinatesLoaded = false;
-  List<GooglePlace> _allPlaces = [];
-  final List<GooglePlace> _placesWithCoordinates = [];
-  final Map<String, String> _annotationIdToPlaceId = {};
-  GooglePlace? _selectedPlace;
-  Symbol? _selectedAnnotation; // Added to track selected annotation
-  final Map<String, Symbol> _placeIdToAnnotation =
-      {}; // Added for placeId -> annotation mapping
-  final List<LatLng> _placePoints = [];
-  bool _isDrawingRoute = false;
   bool _pinImageAdded = false;
-  Uint8List? _pinImageBytes; // Added state for pin image bytes
+  bool _showTripLine = true;
+  bool _isUpdatingRoute = false;
+  Uint8List? _pinImageBytes;
+
+  late final List<_MapPlace> _allPlaces;
+  late final List<DateTime> _tripDays;
+  DateTime? _selectedDay;
+
+  final Map<String, String> _annotationIdToPlaceKey = {};
+  final Map<String, Symbol> _placeKeyToAnnotation = {};
+  Symbol? _selectedAnnotation;
+  _MapPlace? _selectedPlace;
 
   LatLng _centerPoint = const LatLng(41.9028, 12.4964);
+
+  List<_MapPlace> get _visiblePlaces {
+    if (_selectedDay == null) return _allPlaces;
+    return _allPlaces
+        .where((place) => _isSameDay(place.date, _selectedDay))
+        .toList();
+  }
+
+  List<LatLng> get _visiblePoints =>
+      _visiblePlaces.map((p) => p.point).toList();
 
   @override
   void initState() {
     super.initState();
-    _loadPinImage(); // Load the pin image
-    _allPlaces = _extractAllPlaces();
-    _checkLocationPermission();
-    _fetchPlaceCoordinatesAndCalculateCenter();
+    _allPlaces = _extractPlaces();
+    _tripDays = _extractTripDays();
+    if (_tripDays.isNotEmpty) _selectedDay = null;
+    _calculateCenter(_visiblePoints);
+    _loadPinImage();
   }
 
-  // Method to load the pin image asset
   Future<void> _loadPinImage() async {
     try {
-      final ByteData byteData =
-          await rootBundle.load('assets/images/map_pin.png');
+      final byteData = await rootBundle.load('assets/images/map_pin.png');
       _pinImageBytes = byteData.buffer.asUint8List();
-      log("Pin image loaded successfully.");
-      // If map is already initialized and coordinates loaded when image loads, refresh markers
-      if (_mapInitialized && _coordinatesLoaded) {
-        _addPlaceMarkers();
-      }
+      if (_mapInitialized) _refreshMapContent();
     } catch (e) {
-      log("Error loading pin image: $e");
-      _showErrorSnackbar("Could not load map pin image.");
+      log('Error loading pin image: $e');
+      _showErrorSnackbar('Could not load map pin image.');
     }
   }
 
-  Future<void> _checkLocationPermission() async {
-    try {
-      final permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        await Geolocator.requestPermission();
-      }
-    } catch (e) {
-      log('Error checking location permission: $e');
-    }
-  }
-
-  List<GooglePlace> _extractAllPlaces() {
-    final places = <GooglePlace>[];
-    final processedPlaceIds = <String>{};
+  List<_MapPlace> _extractPlaces() {
+    final places = <_MapPlace>[];
+    var order = 0;
 
     for (final section in widget.tripPlan.itinerary.sections) {
+      final sectionDate = _parseDate(section.date);
       for (final block in section.blocks) {
-        GooglePlace? placeToAdd;
         if (block is PlaceBlock) {
-          placeToAdd = block.place;
+          _addPlace(
+            places,
+            place: block.place,
+            date: sectionDate,
+            order: ++order,
+            type:
+                block.hotel == null ? _MapPlaceType.place : _MapPlaceType.hotel,
+            time: block.startTime,
+          );
         } else if (block is TransitBlock) {
-          // Add depart place if not already added and has geometry
-          if (!processedPlaceIds.contains(block.depart.place.placeId) &&
-              block.depart.place.geometry != null) {
-            places.add(block.depart.place);
-            processedPlaceIds.add(block.depart.place.placeId);
-          }
-          // Set arrive place to be potentially added (if not already added and has geometry)
-          placeToAdd = block.arrive.place;
+          final departDate = _parseDate(block.depart.date) ?? sectionDate;
+          final arriveDate = _parseDate(block.arrive.date) ?? sectionDate;
+          _addPlace(
+            places,
+            place: block.depart.place,
+            date: departDate,
+            order: ++order,
+            type: _MapPlaceType.transit,
+            time: block.depart.time,
+          );
+          _addPlace(
+            places,
+            place: block.arrive.place,
+            date: arriveDate,
+            order: ++order,
+            type: _MapPlaceType.transit,
+            time: block.arrive.time,
+          );
         } else if (block is FlightBlock) {
           final departPlace = block.depart.airport.googlePlace;
           final arrivePlace = block.arrive.airport.googlePlace;
-
-          // Add depart airport place if not already added and has geometry
-          if (departPlace != null &&
-              !processedPlaceIds.contains(departPlace.placeId) &&
-              departPlace.geometry != null) {
-            places.add(departPlace);
-            processedPlaceIds.add(departPlace.placeId);
+          if (departPlace != null) {
+            _addPlace(
+              places,
+              place: departPlace,
+              date: _parseDate(block.depart.date) ?? sectionDate,
+              order: ++order,
+              type: _MapPlaceType.flight,
+              time: block.depart.time,
+            );
           }
-          // Set arrive airport place to be potentially added (if not already added and has geometry)
-          placeToAdd = arrivePlace;
-        }
-
-        // Add the place if it's valid, has geometry, and hasn't been added yet
-        if (placeToAdd != null &&
-            !processedPlaceIds.contains(placeToAdd.placeId) &&
-            placeToAdd.geometry != null) {
-          places.add(placeToAdd);
-          processedPlaceIds.add(placeToAdd.placeId);
+          if (arrivePlace != null) {
+            _addPlace(
+              places,
+              place: arrivePlace,
+              date: _parseDate(block.arrive.date) ?? sectionDate,
+              order: ++order,
+              type: _MapPlaceType.flight,
+              time: block.arrive.time,
+            );
+          }
         }
       }
     }
-    log("Extracted ${places.length} places with geometry.");
+
     return places;
   }
 
-  LatLng? _getCoordinatesFromPlace(GooglePlace place) {
-    if (place.geometry != null) {
-      final location = place.geometry!.location;
-      log('Using coordinates for "${place.name}": ${location.lat}, ${location.lng}');
-      return LatLng(location.lat, location.lng);
-    } else {
-      log('No geometry information for place: ${place.name} (${place.placeId})');
+  void _addPlace(
+    List<_MapPlace> places, {
+    required GooglePlace place,
+    required DateTime? date,
+    required int order,
+    required _MapPlaceType type,
+    String? time,
+  }) {
+    final geometry = place.geometry;
+    if (geometry == null) return;
+
+    places.add(
+      _MapPlace(
+        key: '$order-${place.placeId}',
+        place: place,
+        point: LatLng(geometry.location.lat, geometry.location.lng),
+        date: date,
+        order: order,
+        type: type,
+        time: time,
+      ),
+    );
+  }
+
+  List<DateTime> _extractTripDays() {
+    final days = <DateTime>{};
+    for (final place in _allPlaces) {
+      final date = place.date;
+      if (date != null) days.add(DateTime(date.year, date.month, date.day));
+    }
+    return days.toList()..sort();
+  }
+
+  DateTime? _parseDate(String? value) {
+    if (value == null || value.isEmpty) return null;
+    try {
+      final parsed = DateTime.parse(value);
+      return DateTime(parsed.year, parsed.month, parsed.day);
+    } catch (_) {
       return null;
     }
   }
 
-  Future<void> _fetchPlaceCoordinatesAndCalculateCenter() async {
-    if (_allPlaces.isEmpty) {
-      log("No places extracted, skipping coordinate fetching.");
-      if (mounted) {
-        setState(() {
-          _coordinatesLoaded = true; // Mark as loaded even if no places
-        });
-      }
-      return;
-    }
+  bool _isSameDay(DateTime? a, DateTime? b) {
+    if (a == null || b == null) return false;
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
 
-    _placePoints.clear();
-    _placesWithCoordinates.clear();
+  void _selectDay(DateTime? day) {
+    setState(() {
+      _selectedDay = day;
+      _selectedPlace = null;
+      _selectedAnnotation = null;
+      _calculateCenter(_visiblePoints);
+    });
+    _refreshMapContent(fitCamera: true);
+  }
 
-    double sumLat = 0.0;
-    double sumLng = 0.0;
+  void _calculateCenter(List<LatLng> points) {
+    if (points.isEmpty) return;
+    final sum = points.fold<(double, double)>(
+      (0, 0),
+      (acc, point) => (acc.$1 + point.latitude, acc.$2 + point.longitude),
+    );
+    _centerPoint = LatLng(sum.$1 / points.length, sum.$2 / points.length);
+  }
 
-    for (final place in _allPlaces) {
-      final coords = _getCoordinatesFromPlace(place);
-      if (coords != null) {
-        _placesWithCoordinates.add(place);
-        _placePoints.add(coords);
-        sumLat += coords.latitude;
-        sumLng += coords.longitude;
-      } else {
-        log('Skipping place due to missing coordinates: ${place.name}');
-      }
-    }
-
-    if (_placePoints.isNotEmpty) {
-      _centerPoint = LatLng(
-        sumLat / _placePoints.length,
-        sumLng / _placePoints.length,
-      );
-      log("Calculated center point: ${_centerPoint.latitude}, ${_centerPoint.longitude} from ${_placePoints.length} places.");
-    } else {
-      log('No valid coordinates found for any place. Using default center.');
-    }
-
-    if (mounted) {
-      setState(() {
-        _coordinatesLoaded = true;
-      });
-      // Check if pin image is also loaded before adding markers
-      if (_mapInitialized && _pinImageBytes != null) {
-        log("Coordinates loaded, map initialized, pin image loaded. Adding markers and flying to center.");
-        _addPlaceMarkers();
-        if (_mapController != null && _placePoints.isNotEmpty) {
-          _mapController!.animateCamera(
-            CameraUpdate.newCameraPosition(
-              CameraPosition(target: _centerPoint, zoom: 10.0),
-            ),
-            duration: const Duration(milliseconds: 1000),
-          );
-        }
-      } else {
-        log("Coordinates loaded, but map or pin image not ready yet.");
-      }
-    }
+  Future<void> _refreshMapContent({bool fitCamera = false}) async {
+    await _addPlaceMarkers();
+    await _updateRouteLine();
+    if (fitCamera) _fitVisiblePlaces();
   }
 
   Future<void> _addPlaceMarkers() async {
-    // Add check for pin image bytes
-    if (!_mapInitialized ||
-        !_coordinatesLoaded ||
-        _mapController == null ||
-        _placesWithCoordinates.isEmpty ||
-        _pinImageBytes == null) {
-      // Check if image is loaded
-      log('Skipping addPlaceMarkers: Map Initialized: $_mapInitialized, Coords Loaded: $_coordinatesLoaded, Map Ready: ${_mapController != null}, Places > 0: ${_placesWithCoordinates.isNotEmpty}, Pin Image Loaded: ${_pinImageBytes != null}');
+    if (!_mapInitialized || _mapController == null || _pinImageBytes == null) {
       return;
     }
 
-    log('Adding ${_placePoints.length} place markers using image.');
-
     try {
       await _mapController!.clearSymbols();
-      _annotationIdToPlaceId.clear();
-      _placeIdToAnnotation.clear();
+      _annotationIdToPlaceKey.clear();
+      _placeKeyToAnnotation.clear();
 
       if (!_pinImageAdded) {
         await _mapController!.addImage(_placePinImageName, _pinImageBytes!);
         _pinImageAdded = true;
       }
 
-      List<SymbolOptions> optionsList = [];
-      for (int i = 0; i < _placesWithCoordinates.length; i++) {
-        if (i < _placePoints.length) {
-          final point = _placePoints[i];
-          optionsList.add(SymbolOptions(
-            geometry: point,
-            iconImage: _placePinImageName,
-            iconSize: 1.0, // Adjust default size as needed
-          ));
-        } else {
-          log('Warning: Mismatch between placesWithCoordinates (${_placesWithCoordinates.length}) and _placePoints (${_placePoints.length}) at index $i');
-        }
-      }
+      final visiblePlaces = _visiblePlaces;
+      final annotations = await _mapController!.addSymbols(
+        visiblePlaces
+            .map(
+              (place) => SymbolOptions(
+                geometry: place.point,
+                iconImage: _placePinImageName,
+                iconSize: _selectedPlace?.key == place.key ? 1.4 : 1.0,
+                textField: place.displayOrder,
+                textOffset: const Offset(0, -1.7),
+                textColor: '#111827',
+                textHaloColor: '#ffffff',
+                textHaloWidth: 1.5,
+                textSize: 12,
+              ),
+            )
+            .toList(),
+      );
 
-      final annotations = await _mapController!.addSymbols(optionsList);
-
-      for (int i = 0; i < annotations.length; i++) {
-        if (i < _placesWithCoordinates.length) {
-          final annotation = annotations[i];
-          final annotationId = annotation.id;
-          final placeId = _placesWithCoordinates[i].placeId;
-          _annotationIdToPlaceId[annotationId] = placeId;
-          _placeIdToAnnotation[placeId] = annotation;
-        }
+      for (var i = 0; i < annotations.length; i++) {
+        final annotation = annotations[i];
+        final place = visiblePlaces[i];
+        _annotationIdToPlaceKey[annotation.id] = place.key;
+        _placeKeyToAnnotation[place.key] = annotation;
       }
     } catch (e) {
       log('Error adding place markers: $e');
-      _showErrorSnackbar('Could not display all place markers.');
+      _showErrorSnackbar('Could not display place markers.');
     }
+  }
+
+  Future<void> _updateRouteLine() async {
+    if (_mapController == null || _isUpdatingRoute) return;
+
+    setState(() => _isUpdatingRoute = true);
+    try {
+      await _mapController!.clearLines();
+      final points = _visiblePoints;
+      if (!_showTripLine || points.length < 2) return;
+
+      await _mapController!.addLine(
+        LineOptions(
+          geometry: points,
+          lineWidth: 4,
+          lineColor: '#2563EB',
+          lineOpacity: 0.78,
+        ),
+      );
+    } catch (e) {
+      log('Error updating route: $e');
+      _showErrorSnackbar('Could not update the route line.');
+    } finally {
+      if (mounted) setState(() => _isUpdatingRoute = false);
+    }
+  }
+
+  void _toggleTripLine() {
+    setState(() => _showTripLine = !_showTripLine);
+    _updateRouteLine();
   }
 
   void _handleSymbolClick(Symbol annotation) {
-    final annotationId = annotation.id;
+    final placeKey = _annotationIdToPlaceKey[annotation.id];
+    if (placeKey == null) return;
 
-    final placeId = _annotationIdToPlaceId[annotationId];
-    if (placeId != null) {
-      try {
-        final place = _placesWithCoordinates.firstWhere(
-          (p) => p.placeId == placeId,
-        );
-        final clickedAnnotation = _placeIdToAnnotation[placeId];
-        if (clickedAnnotation != null) {
-          _updateSelectedAnnotation(clickedAnnotation, place); // Use helper
-        } else {
-          log('Could not find annotation object for place ID $placeId');
-          // Fallback: update state without visual change
-          setState(() {
-            _selectedPlace = place;
-          });
-        }
-      } catch (e) {
-        log('Error finding place for annotation ID $annotationId (Place ID: $placeId): $e');
-      }
-    } else {
-      log('Clicked annotation $annotationId has no associated placeId.');
-    }
-  }
-
-  void _drawRouteBetweenPlaces() async {
-    if (_mapController == null ||
-        _placePoints.length < 2 ||
-        !_coordinatesLoaded) {
-      return;
-    }
-
-    setState(() {
-      _isDrawingRoute = true;
-    });
-
-    try {
-      await _mapController!.clearLines();
-
-      final lineOptions = LineOptions(
-        geometry: _placePoints,
-        lineWidth: 3.0,
-        lineColor: '#ff0000',
-        lineOpacity: 0.7,
-      );
-
-      await _mapController!.addLine(lineOptions);
-    } catch (e) {
-      log('Error drawing route: $e');
-      _showErrorSnackbar('Could not draw the route.');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isDrawingRoute = false;
-        });
-      }
-    }
-  }
-
-  void _zoomToPlace(GooglePlace place) {
-    if (_mapController == null || !_coordinatesLoaded) return;
-
-    final placeId = place.placeId;
-    int placeIndex = -1;
-
-    for (int i = 0; i < _placesWithCoordinates.length; i++) {
-      if (_placesWithCoordinates[i].placeId == placeId) {
-        placeIndex = i;
+    _MapPlace? place;
+    for (final visiblePlace in _visiblePlaces) {
+      if (visiblePlace.key == placeKey) {
+        place = visiblePlace;
         break;
       }
     }
 
-    if (placeIndex >= 0 && placeIndex < _placePoints.length) {
-      _mapController!.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: _placePoints[placeIndex], zoom: 14.0),
-        ),
-        duration: const Duration(milliseconds: 1000),
-      );
-
-      // Find annotation and update selection visual
-      final annotationToSelect = _placeIdToAnnotation[placeId];
-      if (annotationToSelect != null) {
-        _updateSelectedAnnotation(annotationToSelect, place); // Use helper
-      } else {
-        log('Could not find annotation object for place ID $placeId during zoom');
-        // Fallback: update state without visual change
-        setState(() {
-          _selectedPlace = place;
-        });
-      }
-    } else {
-      log('Could not find coordinates to zoom for place: ${place.name}');
-      _showErrorSnackbar('Could not find coordinates for this place.');
+    final selectedAnnotation = _placeKeyToAnnotation[placeKey];
+    if (place != null && selectedAnnotation != null) {
+      _updateSelectedAnnotation(selectedAnnotation, place);
     }
   }
 
-  // Helper method to update annotation visuals and state
   Future<void> _updateSelectedAnnotation(
-      Symbol? newAnnotation, GooglePlace? newPlace) async {
-    if (_mapController == null || _pinImageBytes == null) return;
+    Symbol? newAnnotation,
+    _MapPlace? newPlace,
+  ) async {
+    if (_mapController == null) return;
 
-    // Reset previous selection
     if (_selectedAnnotation != null && _selectedAnnotation != newAnnotation) {
-      try {
-        await _mapController!.updateSymbol(
-          _selectedAnnotation!,
-          const SymbolOptions(iconSize: 1.0),
-        );
-      } catch (e) {
-        log("Error resetting previous annotation: $e");
-      }
+      await _mapController!.updateSymbol(
+        _selectedAnnotation!,
+        const SymbolOptions(iconSize: 1.0),
+      );
     }
 
-    // Set new selection
     if (newAnnotation != null) {
-      try {
-        await _mapController!.updateSymbol(
-          newAnnotation,
-          const SymbolOptions(iconSize: 1.5),
-        );
-      } catch (e) {
-        log("Error updating selected annotation: $e");
-      }
+      await _mapController!.updateSymbol(
+        newAnnotation,
+        const SymbolOptions(iconSize: 1.4),
+      );
     }
 
-    // Update state
-    if (_selectedPlace != newPlace || _selectedAnnotation != newAnnotation) {
+    if (mounted) {
       setState(() {
         _selectedAnnotation = newAnnotation;
         _selectedPlace = newPlace;
@@ -383,30 +350,51 @@ class _MapViewState extends State<MapView> {
     }
   }
 
+  void _zoomToPlace(_MapPlace place) {
+    _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: place.point, zoom: 15),
+      ),
+      duration: const Duration(milliseconds: 500),
+    );
+
+    final annotation = _placeKeyToAnnotation[place.key];
+    if (annotation != null) _updateSelectedAnnotation(annotation, place);
+  }
+
+  void _fitVisiblePlaces() {
+    if (_mapController == null || _visiblePoints.isEmpty) return;
+    _mapController!.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: _centerPoint,
+          zoom: _visiblePoints.length == 1 ? 14 : 10,
+        ),
+      ),
+      duration: const Duration(milliseconds: 500),
+    );
+  }
+
   Future<void> _openInMaps(GooglePlace place) async {
-    try {
-      final name = Uri.encodeComponent(place.name);
-      final address = Uri.encodeComponent(place.formattedAddress);
+    final query =
+        Uri.encodeComponent('${place.name}, ${place.formattedAddress}');
+    final uri =
+        Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
 
-      final googleMapsUrl =
-          'https://www.google.com/maps/search/?api=1&query=$name,$address';
-      final googleUri = Uri.parse(googleMapsUrl);
-
-      if (await canLaunchUrl(googleUri)) {
-        await launchUrl(googleUri, mode: LaunchMode.externalApplication);
-      } else if (place.url != null) {
-        final placeUri = Uri.parse(place.url!);
-        if (await canLaunchUrl(placeUri)) {
-          await launchUrl(placeUri, mode: LaunchMode.externalApplication);
-        } else {
-          _showErrorSnackbar('Could not open maps application');
-        }
-      } else {
-        _showErrorSnackbar('Could not open maps application');
-      }
-    } catch (e) {
-      _showErrorSnackbar('Error opening maps: $e');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return;
     }
+
+    if (place.url != null) {
+      final placeUri = Uri.parse(place.url!);
+      if (await canLaunchUrl(placeUri)) {
+        await launchUrl(placeUri, mode: LaunchMode.externalApplication);
+        return;
+      }
+    }
+
+    _showErrorSnackbar('Could not open maps application');
   }
 
   void _showErrorSnackbar(String message) {
@@ -418,18 +406,18 @@ class _MapViewState extends State<MapView> {
 
   @override
   Widget build(BuildContext context) {
-    final placesToShow = _placesWithCoordinates;
+    final visiblePlaces = _visiblePlaces;
 
     return Scaffold(
       appBar: AppBar(
         title: Text('${widget.tripPlan.title} - Map'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.route),
-            tooltip: 'Show Route',
-            onPressed: (_isDrawingRoute || _placePoints.length < 2)
+            icon: Icon(_showTripLine ? Icons.route : Icons.route_outlined),
+            tooltip: _showTripLine ? 'Hide trip line' : 'Show trip line',
+            onPressed: visiblePlaces.length < 2 || _isUpdatingRoute
                 ? null
-                : _drawRouteBetweenPlaces,
+                : _toggleTripLine,
           ),
         ],
       ),
@@ -437,220 +425,234 @@ class _MapViewState extends State<MapView> {
         children: [
           MapLibreMap(
             key: const ValueKey('mapWidget'),
-            styleString: MapLibreStyles.demo,
+            styleString: _streetStyle,
             onMapCreated: _onMapCreated,
             onStyleLoadedCallback: _onStyleLoaded,
-            onMapIdle: _onMapIdle,
-            myLocationEnabled: true,
             initialCameraPosition: CameraPosition(
               target: _centerPoint,
-              zoom: 10.0,
+              zoom: 10,
             ),
+            compassEnabled: true,
+            rotateGesturesEnabled: true,
+            tiltGesturesEnabled: true,
           ),
-          if (!_mapInitialized || !_coordinatesLoaded)
+          if (!_mapInitialized)
             Container(
-              color: Colors.black.withValues(alpha: 0.3),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 10),
-                    Text(
-                      !_mapInitialized
-                          ? 'Initializing map...'
-                          : 'Fetching coordinates...',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                  ],
-                ),
+              color: Colors.black.withValues(alpha: 0.25),
+              child: const Center(
+                child: CircularProgressIndicator(),
               ),
             ),
-          if (_mapInitialized && _coordinatesLoaded)
-            DraggableScrollableSheet(
-              initialChildSize: 0.3,
-              minChildSize: 0.1,
-              maxChildSize: 0.9,
-              builder: (context, controller) {
-                return Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(16),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 10,
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Center(
-                        child: Container(
-                          margin: const EdgeInsets.only(top: 8, bottom: 8),
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0)
-                            .copyWith(top: 8),
-                        child: Text(
-                          'Places (${placesToShow.length})',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                      ),
-                      if (placesToShow.isEmpty && _allPlaces.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text(
-                            'Could not find coordinates for any places in this trip.',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(color: Colors.grey),
-                          ),
-                        )
-                      else if (placesToShow.isEmpty && _allPlaces.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text(
-                            'No places found in this trip.',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(color: Colors.grey),
-                          ),
-                        )
-                      else
-                        Expanded(
-                          child: ListView.builder(
-                            controller: controller,
-                            itemCount: placesToShow.length,
-                            itemBuilder: (context, index) {
-                              final place = placesToShow[index];
-                              return ListTile(
-                                leading: Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primaryContainer,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      '${index + 1}',
-                                      style: TextStyle(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onPrimaryContainer,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                title: Text(place.name),
-                                subtitle: Text(place.formattedAddress,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis),
-                                onTap: () => _zoomToPlace(place),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.directions),
-                                  onPressed: () => _openInMaps(place),
-                                  tooltip: 'Get directions',
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              },
-            ),
+          if (_mapInitialized) _buildDayFilter(context),
+          if (_mapInitialized) _buildPlacesSheet(context, visiblePlaces),
         ],
       ),
-      floatingActionButton: _mapInitialized && _coordinatesLoaded
+      floatingActionButton: _mapInitialized && visiblePlaces.isNotEmpty
           ? FloatingActionButton(
               onPressed: () {
-                if (_mapController != null) {
-                  _mapController!.animateCamera(
-                    CameraUpdate.newCameraPosition(
-                      CameraPosition(target: _centerPoint, zoom: 10.0),
-                    ),
-                    duration: const Duration(milliseconds: 1000),
-                  );
-
-                  // Clear selection visual and state
-                  _updateSelectedAnnotation(null, null); // Use helper
-                }
+                _updateSelectedAnnotation(null, null);
+                _fitVisiblePlaces();
               },
-              tooltip: 'Show All Places',
+              tooltip: 'Show visible places',
               child: const Icon(Icons.zoom_out_map),
             )
           : null,
     );
   }
 
-  void _onMapCreated(MapLibreMapController mapController) async {
-    _mapController = mapController;
-    _mapController!.onSymbolTapped.add(_handleSymbolClick);
-    log("MapLibre map created.");
+  Widget _buildDayFilter(BuildContext context) {
+    if (_tripDays.isEmpty) return const SizedBox.shrink();
 
-    // Check if coordinates and image are ready
-    if (_coordinatesLoaded && _pinImageBytes != null) {
-      log("Map created after coordinates and image loaded, attempting initial setup.");
-      _addPlaceMarkers(); // Add markers now if ready
-      _mapController?.moveCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: _centerPoint, zoom: 10.0),
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Container(
+          height: 56,
+          margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 12,
+              ),
+            ],
+          ),
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                child: ChoiceChip(
+                  label: const Text('All'),
+                  selected: _selectedDay == null,
+                  onSelected: (_) => _selectDay(null),
+                ),
+              ),
+              ..._tripDays.map(
+                (day) => Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                  child: ChoiceChip(
+                    label: Text(DateFormat('EEE d').format(day)),
+                    selected: _isSameDay(_selectedDay, day),
+                    onSelected: (_) => _selectDay(day),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      );
-    } else {
-      log("Map created, but coordinates or pin image are not loaded yet.");
-    }
-    if (mounted) {
-      setState(
-          () {}); // Update UI state (e.g., hide loading indicator if needed)
-    }
+      ),
+    );
   }
 
-  void _onStyleLoaded() async {
-    log("Event: Map style loaded.");
+  Widget _buildPlacesSheet(
+      BuildContext context, List<_MapPlace> visiblePlaces) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.32,
+      minChildSize: 0.14,
+      maxChildSize: 0.86,
+      builder: (context, controller) {
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.16),
+                blurRadius: 16,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 8, bottom: 6),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).dividerColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _selectedDay == null
+                            ? 'All places (${visiblePlaces.length})'
+                            : '${DateFormat('EEE, MMM d').format(_selectedDay!)} (${visiblePlaces.length})',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.open_in_full),
+                      tooltip: 'Fit places',
+                      onPressed:
+                          visiblePlaces.isEmpty ? null : _fitVisiblePlaces,
+                    ),
+                  ],
+                ),
+              ),
+              if (visiblePlaces.isEmpty)
+                const Expanded(
+                  child: Center(
+                    child: Text('No mapped places for this day.'),
+                  ),
+                )
+              else
+                Expanded(
+                  child: ListView.separated(
+                    controller: controller,
+                    itemCount: visiblePlaces.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final place = visiblePlaces[index];
+                      final selected = _selectedPlace?.key == place.key;
+                      return ListTile(
+                        selected: selected,
+                        leading: CircleAvatar(
+                          child: Text(place.displayOrder),
+                        ),
+                        title: Text(place.place.name),
+                        subtitle: Text(
+                          [
+                            if (place.time != null && place.time!.isNotEmpty)
+                              place.time!,
+                            place.type.label,
+                            place.place.formattedAddress,
+                          ].join(' - '),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onTap: () => _zoomToPlace(place),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.directions),
+                          tooltip: 'Get directions',
+                          onPressed: () => _openInMaps(place.place),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
+  void _onMapCreated(MapLibreMapController controller) {
+    _mapController = controller;
+    controller.onSymbolTapped.add(_handleSymbolClick);
+  }
+
+  void _onStyleLoaded() {
     _mapInitialized = true;
     _pinImageAdded = false;
-
-    // Style loaded implies map is ready. Add markers if coordinates and image are ready.
-    if (_coordinatesLoaded && _pinImageBytes != null) {
-      log("Style loaded, coordinates and image ready. Adding markers.");
-      _addPlaceMarkers();
-    } else {
-      log("Style loaded, but coordinates or pin image not ready yet.");
-    }
-
     if (mounted) setState(() {});
+    _refreshMapContent(fitCamera: true);
   }
+}
 
-  void _onMapIdle() {
-    log("Event: Map idle.");
-    // Attempt to add markers if they haven't been added yet and everything is ready
-    if (_placeIdToAnnotation.isEmpty &&
-        _coordinatesLoaded &&
-        _pinImageBytes != null) {
-      log("Map idle, attempting to add markers again if missed.");
-      _addPlaceMarkers();
-    }
-  }
+class _MapPlace {
+  final String key;
+  final GooglePlace place;
+  final LatLng point;
+  final DateTime? date;
+  final int order;
+  final _MapPlaceType type;
+  final String? time;
+
+  const _MapPlace({
+    required this.key,
+    required this.place,
+    required this.point,
+    required this.date,
+    required this.order,
+    required this.type,
+    this.time,
+  });
+
+  String get displayOrder => order.toString();
+}
+
+enum _MapPlaceType {
+  place('Place'),
+  hotel('Hotel'),
+  transit('Transit'),
+  flight('Flight');
+
+  final String label;
+
+  const _MapPlaceType(this.label);
 }
