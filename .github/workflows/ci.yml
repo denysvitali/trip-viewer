@@ -125,7 +125,12 @@ jobs:
       - name: Merge coverage reports
         run: |
           mkdir -p coverage
-          cp coverage-shards/coverage-report/lcov.info coverage/lcov.info
+          LCOV_FILE="$(find coverage-shards -type f -name lcov.info | head -n 1)"
+          if [ -z "$LCOV_FILE" ]; then
+            echo "No lcov report found in coverage-shards"
+            exit 1
+          fi
+          cp "$LCOV_FILE" coverage/lcov.info
           echo "Merged coverage report"
           echo "Total lines: $(wc -l < coverage/lcov.info)"
           echo "Source files: $(grep -c '^SF:' coverage/lcov.info)"
