@@ -59,9 +59,9 @@ class SettingsPage extends StatelessWidget {
           _SectionHeader(title: 'About'),
           ListTile(
             leading: const Icon(Icons.info_outline),
-            title: const Text('Wanderlog Alt'),
+            title: const Text('Trip Viewer'),
             subtitle: const Text(
-                'An alternative client for viewing Wanderlog trip itineraries'),
+                'An alternative client for viewing trip itineraries'),
           ),
         ],
       ),

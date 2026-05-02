@@ -1,4 +1,4 @@
-package it.denv.wanderlog_alt
+package it.denv.trip_viewer
 
 import io.flutter.embedding.android.FlutterActivity
 

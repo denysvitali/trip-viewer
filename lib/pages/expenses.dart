@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; // Import intl package
-import 'package:wanderlog_alt/models/trip_plan.dart';
+import 'package:trip_viewer/models/trip_plan.dart';
 
 class ExpensesPage extends StatelessWidget {
   final List<Expense> expenses;

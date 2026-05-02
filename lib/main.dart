@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
-import 'package:wanderlog_alt/pages/trip_list.dart';
-import 'package:wanderlog_alt/pages/settings.dart';
-import 'package:wanderlog_alt/theme/app_theme.dart';
+import 'package:trip_viewer/pages/trip_list.dart';
+import 'package:trip_viewer/pages/settings.dart';
+import 'package:trip_viewer/theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,7 +18,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Wanderlog',
+      title: 'Trip Viewer',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,

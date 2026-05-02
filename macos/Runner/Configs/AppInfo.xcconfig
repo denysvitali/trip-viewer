@@ -5,10 +5,10 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = wanderlog_alt
+PRODUCT_NAME = Trip Viewer
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = it.denv.wanderlogAlt
+PRODUCT_BUNDLE_IDENTIFIER = it.denv.tripViewer
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2024 it.denv. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2024 it.denv. Licensed under GPL-3.0.

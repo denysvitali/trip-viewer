@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:wanderlog_alt/models/trip_plan.dart';
-import 'package:wanderlog_alt/theme/app_theme.dart';
-import 'package:wanderlog_alt/widgets/blocks/generic_block.dart';
-import 'package:wanderlog_alt/widgets/place_image.dart';
-import 'package:wanderlog_alt/widgets/text_container_widget.dart';
+import 'package:trip_viewer/models/trip_plan.dart';
+import 'package:trip_viewer/theme/app_theme.dart';
+import 'package:trip_viewer/widgets/blocks/generic_block.dart';
+import 'package:trip_viewer/widgets/place_image.dart';
+import 'package:trip_viewer/widgets/text_container_widget.dart';
 
 class PlaceBlockWidget extends StatefulWidget {
   final PlaceBlock placeBlock;

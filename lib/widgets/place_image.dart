@@ -1,6 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:wanderlog_alt/models/trip_plan.dart';
+import 'package:trip_viewer/models/trip_plan.dart';
 
 String getImageUrlById(String id) {
   return 'https://itin-dev.sfo2.cdn.digitaloceanspaces.com/freeImage/$id';

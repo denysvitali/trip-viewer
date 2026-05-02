@@ -6,7 +6,7 @@ import 'package:flutter/services.dart'; // Import for rootBundle
 import 'package:geolocator/geolocator.dart' hide Position;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:wanderlog_alt/models/trip_plan.dart';
+import 'package:trip_viewer/models/trip_plan.dart';
 
 // Moved class outside _MapViewState
 class OnPointAnnotationClickListenerImpl

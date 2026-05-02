@@ -1,7 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:wanderlog_alt/models/trip_plan.dart';
+import 'package:trip_viewer/models/trip_plan.dart';
 
 class TextContainerWidget extends StatelessWidget {
   final TextContainer textContainer;

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:wanderlog_alt/models/trip_plan.dart';
-import 'package:wanderlog_alt/theme/app_theme.dart';
+import 'package:trip_viewer/models/trip_plan.dart';
+import 'package:trip_viewer/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 
 enum TransitType { bus, train, other }

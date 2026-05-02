@@ -2,10 +2,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:wanderlog_alt/models/saved_trip.dart';
-import 'package:wanderlog_alt/services/trip_storage_service.dart';
-import 'package:wanderlog_alt/pages/trip.dart';
-import 'package:wanderlog_alt/widgets/place_image.dart';
+import 'package:trip_viewer/models/saved_trip.dart';
+import 'package:trip_viewer/services/trip_storage_service.dart';
+import 'package:trip_viewer/pages/trip.dart';
+import 'package:trip_viewer/widgets/place_image.dart';
 
 class TripListPage extends StatefulWidget {
   const TripListPage({super.key});
@@ -36,10 +36,10 @@ class _TripListPageState extends State<TripListPage> {
     }
   }
 
-  /// Parses a Wanderlog URL or raw trip ID into just the trip ID
+  /// Parses a trip URL or raw trip ID into just the trip ID
   String _parseTripId(String input) {
     input = input.trim();
-    // Handle full URLs like https://wanderlog.com/view/xxxxx/slug
+    // Handle supported shared trip URLs
     final uri = Uri.tryParse(input);
     if (uri != null && uri.host.contains('wanderlog.com')) {
       final segments = uri.pathSegments;
@@ -62,7 +62,7 @@ class _TripListPageState extends State<TripListPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Enter a trip ID or paste a Wanderlog URL',
+              'Enter a trip ID or paste a trip URL',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -72,7 +72,7 @@ class _TripListPageState extends State<TripListPage> {
               controller: controller,
               autofocus: true,
               decoration: const InputDecoration(
-                hintText: 'e.g. vevtulccsc or wanderlog.com/view/...',
+                hintText: 'e.g. vevtulccsc or a trip URL',
               ),
               onSubmitted: (value) {
                 if (value.isNotEmpty) Navigator.pop(context, value);
@@ -194,7 +194,7 @@ class _TripListPageState extends State<TripListPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Add your Wanderlog trip ID to get started',
+              'Add your trip ID to get started',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),

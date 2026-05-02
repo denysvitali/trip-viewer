@@ -1,12 +1,33 @@
-# wanderlog_alt
+# Trip Viewer
 
-An alternative client to see your Wanderlog trips.
+Trip Viewer is an unofficial Flutter client for viewing trip itineraries from a
+saved trip ID or trip URL. It includes timeline, map, expenses, and packing-list
+views.
 
-## CI/CD Pipeline
+This project is not affiliated with, endorsed by, or sponsored by Wanderlog.
+Wanderlog is a trademark of its owner.
 
-This project uses GitHub Actions for Continuous Integration and Continuous Deployment (CI/CD).
+## Setup
 
-### Workflows
+1. Install `devenv`: `curl -fsSL https://devenv.sh | bash`
+2. Enter the shell: `devenv shell`
+3. Fetch packages: `devenv shell -- flutter pub get`
+4. Run locally: `devenv shell -- flutter run`
 
-- `.github/workflows/flutter-build.yaml`: This workflow runs on all branches except the `master` branch. It builds the Flutter app.
-- `.github/workflows/flutter.yml`: This workflow runs only on the `master` branch. It uses the `flutter-build.yaml` workflow as a reusable workflow and includes additional steps to push the app to the Play Store.
+## Quality Checks
+
+- Analyze: `devenv shell -- flutter analyze`
+- Test: `devenv shell -- flutter test`
+- Build Android debug APK: `devenv shell -- flutter build apk --debug`
+- Build web bundle: `devenv shell -- flutter build web --release`
+
+## CI
+
+GitHub Actions runs on GitHub-hosted `ubuntu-latest` runners. Analyze, test,
+Android debug, Android release, and web build jobs are split so they can run on
+separate runners.
+
+## License
+
+Trip Viewer is licensed under the GNU General Public License v3.0. See
+`LICENSE`.

@@ -1,4 +1,4 @@
-name: Wanderlog Alt CI/CD
+name: Trip Viewer CI/CD
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -23,7 +23,8 @@ on:
           - both
 
 env:
-  JAVA_VERSION: '17'
+  JAVA_VERSION: '21'
+  DART_VM_OPTIONS: '--max-gen-heap-size=4096'
 
 permissions:
   contents: write
@@ -31,26 +32,21 @@ permissions:
   id-token: write
 
 jobs:
-  check:
-    name: Analyze & Test
-    runs-on: self-hosted
+  analyze:
+    name: Analyze Code
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v31
+        uses: cachix/install-nix-action@v30
 
       - name: Install devenv
-        run: |
-          if command -v devenv &>/dev/null; then
-            echo "devenv already installed: $(devenv version)"
-          else
-            nix profile install --accept-flake-config github:cachix/devenv/latest
-          fi
+        run: nix profile install nixpkgs#devenv
 
       - name: Cache pub dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: ~/.pub-cache
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
@@ -58,8 +54,7 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Setup .env
-        run: |
-          echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
+        run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
 
       - name: Get dependencies
         run: devenv shell -- flutter pub get
@@ -72,24 +67,54 @@ jobs:
       - name: Analyze code
         run: devenv shell -- flutter analyze --no-fatal-infos --no-fatal-warnings
 
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Setup .env
+        run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
+
+      - name: Get dependencies
+        run: devenv shell -- flutter pub get
+
+      - name: Generate code
+        run: |
+          devenv shell -- flutter pub run build_runner build --delete-conflicting-outputs
+          devenv shell -- flutter gen-l10n
+
       - name: Run tests
         run: devenv shell -- flutter test
 
   build-debug:
     name: Build Debug APK
-    needs: check
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     if: |
-      !cancelled() && !failure() &&
-      ((github.event_name != 'workflow_dispatch' &&
-        !startsWith(github.ref, 'refs/tags/v') &&
-        github.ref != 'refs/heads/master') ||
-       github.event.inputs.build_type == 'debug' ||
-       github.event.inputs.build_type == 'both')
+      (github.event_name != 'workflow_dispatch' &&
+       !startsWith(github.ref, 'refs/tags/v') &&
+       github.ref != 'refs/heads/master') ||
+      github.event.inputs.build_type == 'debug' ||
+      github.event.inputs.build_type == 'both'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Determine build metadata
         id: build_meta
@@ -97,47 +122,44 @@ jobs:
           BUILD_NUMBER=$(( ${{ github.run_number }} * 100 + ${{ github.run_attempt }} ))
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
 
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /opt/microsoft/powershell
+          sudo rm -rf /usr/local/share/chromedriver-linux64
+          sudo rm -rf /usr/local/share/edge_driver
+          sudo rm -rf /usr/local/share/gecko_driver
+          sudo rm -rf /usr/share/swift
+          df -h
+
       - name: Install Nix
-        uses: cachix/install-nix-action@v31
+        uses: cachix/install-nix-action@v30
 
       - name: Install devenv
-        run: |
-          if command -v devenv &>/dev/null; then
-            echo "devenv already installed: $(devenv version)"
-          else
-            nix profile install --accept-flake-config github:cachix/devenv/latest
-          fi
+        run: nix profile install nixpkgs#devenv
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: ${{ env.JAVA_VERSION }}
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
-
       - name: Cache pub dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: ~/.pub-cache
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
           restore-keys: |
             ${{ runner.os }}-pub-
 
-      - name: Cache Gradle
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Setup .env
-        run: |
-          echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
+        run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
 
       - name: Get dependencies
         run: devenv shell -- flutter pub get
@@ -154,26 +176,24 @@ jobs:
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }}
 
       - name: Upload Debug APK
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
-          name: wanderlog-alt-debug-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
+          name: trip-viewer-debug-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
           path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 14
 
   build-release:
-    name: Build Release
-    needs: [check, build-debug]
-    runs-on: self-hosted
+    name: Build Release App Bundle
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     if: |
-      !cancelled() && !failure() &&
-      ((github.event_name == 'push' && github.ref == 'refs/heads/master') ||
-       (github.event_name == 'workflow_dispatch' &&
-        (github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both')) ||
-       startsWith(github.ref, 'refs/tags/v'))
+      (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both')) ||
+      startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Determine build metadata
         id: build_meta
@@ -181,47 +201,44 @@ jobs:
           BUILD_NUMBER=$(( ${{ github.run_number }} * 100 + ${{ github.run_attempt }} ))
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
 
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /opt/microsoft/powershell
+          sudo rm -rf /usr/local/share/chromedriver-linux64
+          sudo rm -rf /usr/local/share/edge_driver
+          sudo rm -rf /usr/share/gecko_driver
+          sudo rm -rf /usr/share/swift
+          df -h
+
       - name: Install Nix
-        uses: cachix/install-nix-action@v31
+        uses: cachix/install-nix-action@v30
 
       - name: Install devenv
-        run: |
-          if command -v devenv &>/dev/null; then
-            echo "devenv already installed: $(devenv version)"
-          else
-            nix profile install --accept-flake-config github:cachix/devenv/latest
-          fi
+        run: nix profile install nixpkgs#devenv
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: ${{ env.JAVA_VERSION }}
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
-
       - name: Cache pub dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: ~/.pub-cache
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
           restore-keys: |
             ${{ runner.os }}-pub-
 
-      - name: Cache Gradle
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Setup .env
-        run: |
-          echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
+        run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
 
       - name: Get dependencies
         run: devenv shell -- flutter pub get
@@ -251,9 +268,9 @@ jobs:
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }}
 
       - name: Upload Release App Bundle
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
-          name: wanderlog-alt-release-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
+          name: trip-viewer-release-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
           path: build/app/outputs/bundle/release/app-release.aab
           retention-days: 14
 
@@ -262,7 +279,7 @@ jobs:
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.SERVICE_ACCOUNT_JSON }}
-          packageName: it.denv.wanderlog_alt
+          packageName: it.denv.trip_viewer
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
           track: internal
           status: draft
@@ -276,10 +293,10 @@ jobs:
           echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_version.outputs.RELEASE_TAG }}
-          name: Wanderlog Alt ${{ steps.release_version.outputs.RELEASE_TAG }}
+          name: Trip Viewer ${{ steps.release_version.outputs.RELEASE_TAG }}
           draft: false
           prerelease: false
           generate_release_notes: false
@@ -289,28 +306,20 @@ jobs:
 
   build-web:
     name: Build Web
-    needs: [check, build-release]
-    runs-on: self-hosted
-    if: |
-      !cancelled() && !failure() &&
-      github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v31
+        uses: cachix/install-nix-action@v30
 
       - name: Install devenv
-        run: |
-          if command -v devenv &>/dev/null; then
-            echo "devenv already installed: $(devenv version)"
-          else
-            nix profile install --accept-flake-config github:cachix/devenv/latest
-          fi
+        run: nix profile install nixpkgs#devenv
 
       - name: Cache pub dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: ~/.pub-cache
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
@@ -318,8 +327,7 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Setup .env
-        run: |
-          echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
+        run: echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > .env
 
       - name: Get dependencies
         run: devenv shell -- flutter pub get
@@ -333,7 +341,7 @@ jobs:
         run: devenv shell -- flutter build web --release --base-href '/'
 
       - name: Upload Web Build
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: web-build
           path: build/web
@@ -342,26 +350,26 @@ jobs:
   deploy-web:
     name: Deploy to GitHub Pages
     needs: build-web
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Download Web Build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: web-build
           path: build/web
 
       - name: Setup Pages
-        uses: actions/configure-pages@v6
+        uses: actions/configure-pages@v4
 
       - name: Upload to GitHub Pages
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@v4

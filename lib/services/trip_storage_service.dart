@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:wanderlog_alt/models/saved_trip.dart';
-import 'package:wanderlog_alt/models/trip_plan.dart';
-import 'package:wanderlog_alt/services/trip_cache_service.dart';
+import 'package:trip_viewer/models/saved_trip.dart';
+import 'package:trip_viewer/models/trip_plan.dart';
+import 'package:trip_viewer/services/trip_cache_service.dart';
 
 class TripStorageService {
   static const String _savedTripsKey = 'saved_trips';

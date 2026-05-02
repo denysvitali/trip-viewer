@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-An alternative Flutter client for viewing Wanderlog trip itineraries. Fetches trip data from `wanderlog.com/api/tripPlans/{tripId}` and displays it with a timeline view, map, expenses, and packing lists. Primary target is Android with web support.
+An alternative Flutter client for viewing trip itineraries. Fetches trip data from `wanderlog.com/api/tripPlans/{tripId}` and displays it with a timeline view, map, expenses, and packing lists. Primary target is Android with web support.
 
 ## Build & Dev Commands
 
@@ -57,10 +57,10 @@ A `.env` file with `MAPBOX_ACCESS_TOKEN=<token>` is required at the project root
 
 ## Android Signing
 
-Release builds use an encrypted keystore. The scripts in `android/scripts/` handle decryption (`decrypt-key.sh`) and `key.properties` generation (`setup-keystore.sh`). Required secrets: `DECRYPTION_KEY`, `STORE_PASSWORD`, `KEY_PASSWORD`. Package name: `it.denv.wanderlog_alt`.
+Release builds use an encrypted keystore. The scripts in `android/scripts/` handle decryption (`decrypt-key.sh`) and `key.properties` generation (`setup-keystore.sh`). Required secrets: `DECRYPTION_KEY`, `STORE_PASSWORD`, `KEY_PASSWORD`. Package name: `it.denv.trip_viewer`.
 
 ## CI/CD
 
-Self-hosted GitHub Actions runners. Workflows in `.github/workflows/`:
-- `ci.yml` — analyze, test, build-debug (PRs), build-release (master → Google Play internal track + GitHub Release), build-web + deploy to GitHub Pages
+GitHub-hosted Actions runners. Workflows in `.github/workflows/`:
+- `ci.yml` — split ubuntu-latest jobs for analyze, test, build-debug, build-release (master → Google Play internal track + GitHub Release), build-web, and deploy to GitHub Pages
 - `update-goldens.yml` — manual workflow to regenerate golden test images

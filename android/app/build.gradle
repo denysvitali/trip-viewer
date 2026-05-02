@@ -37,7 +37,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace "it.denv.wanderlog_alt"
+    namespace "it.denv.trip_viewer"
     compileSdk flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
@@ -55,7 +55,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "it.denv.wanderlog_alt"
+        applicationId "it.denv.trip_viewer"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()

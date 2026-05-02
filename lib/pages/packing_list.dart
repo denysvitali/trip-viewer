@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wanderlog_alt/models/trip_plan.dart';
+import 'package:trip_viewer/models/trip_plan.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
