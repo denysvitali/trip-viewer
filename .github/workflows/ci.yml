@@ -215,9 +215,6 @@ jobs:
     name: Build Debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    defaults:
-      run:
-        shell: devenv shell bash -- -e {0}
     env:
       KEYSTORE_KEY_ALIAS: upload
     # Run on push/PR events (but not tags), or workflow_dispatch with debug or both selected
@@ -267,17 +264,11 @@ jobs:
           sudo rm -rf /usr/share/swift
           df -h
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-
-      - name: Enable Nix binary cache for devenv
-        uses: cachix/cachix-action@v16
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          name: devenv
-
-      - name: Install devenv
-        shell: bash
-        run: nix profile add nixpkgs#devenv
+          channel: stable
+          version: 3.38.7
 
       - name: Setup Android NDK
         run: |
@@ -345,9 +336,6 @@ jobs:
     name: Build Release APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    defaults:
-      run:
-        shell: devenv shell bash -- -e {0}
     env:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
       KEYSTORE_KEY_ALIAS: upload
@@ -406,21 +394,12 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
-      - name: Install Nix
+      - name: Setup Flutter
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
-        uses: cachix/install-nix-action@v31
-
-      - name: Enable Nix binary cache for devenv
-        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
-        uses: cachix/cachix-action@v16
+        uses: subosito/flutter-action@v2
         with:
-          name: devenv
-
-      - name: Install devenv
-        if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
-        shell: bash
-        run: nix profile add nixpkgs#devenv
-
+          channel: stable
+          version: 3.38.7
 
       - name: Setup Android NDK
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
