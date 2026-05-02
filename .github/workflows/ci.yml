@@ -297,7 +297,7 @@ jobs:
           flutter build apk --debug --no-pub \
             --target-platform android-arm64 \
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }} \
-            --dart-define=SENTRY_RELEASE=happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
+            --dart-define=SENTRY_RELEASE=trip_viewer@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
         env:
           APP_ENV: ${{ steps.flavor.outputs.FLAVOR }}
           KEYSTORE_PATH: ${{ steps.debug_keystore.outputs.KEYSTORE_PATH }}
@@ -307,7 +307,7 @@ jobs:
       - name: Upload Debug APK
         uses: actions/upload-artifact@v7
         with:
-          name: happy-flutter-debug-${{ steps.flavor.outputs.FLAVOR }}-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
+          name: trip-viewer-debug-${{ steps.flavor.outputs.FLAVOR }}-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
           path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 14
 
@@ -471,7 +471,7 @@ jobs:
           flutter build apk --release --no-pub \
             --target-platform android-arm64 \
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }} \
-            --dart-define=SENTRY_RELEASE=happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }} \
+            --dart-define=SENTRY_RELEASE=trip_viewer@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }} \
             --split-debug-info=build/debug-info \
             --obfuscate
 
@@ -482,13 +482,13 @@ jobs:
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_DIST: ${{ steps.build_meta.outputs.BUILD_NUMBER }}
-          SENTRY_RELEASE: happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
+          SENTRY_RELEASE: trip_viewer@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
 
       - name: Upload Release APK
         if: ${{ steps.validate_keystore.outputs.can_release == 'true' }}
         uses: actions/upload-artifact@v7
         with:
-          name: happy-flutter-release-${{ steps.flavor.outputs.FLAVOR }}-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
+          name: trip-viewer-release-${{ steps.flavor.outputs.FLAVOR }}-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 14
 
@@ -505,21 +505,24 @@ jobs:
         id: release_version
         run: |
           SEMVER=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | cut -d'+' -f1 | tr -d ' ')
-          RELEASE_TAG="v${SEMVER}-${{ steps.build_meta.outputs.BUILD_NUMBER }}"
+          BUILD_NUMBER="${{ steps.build_meta.outputs.BUILD_NUMBER }}"
+          RELEASE_TAG="v${SEMVER}+${BUILD_NUMBER}"
+          RELEASE_NAME="Trip Viewer v${SEMVER} (build ${BUILD_NUMBER})"
           echo "SEMVER=$SEMVER" >> $GITHUB_OUTPUT
           echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_OUTPUT
+          echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         if: ${{ steps.validate_keystore.outputs.can_release == 'true' }}
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.release_version.outputs.RELEASE_TAG }}
-          name: Happy Flutter ${{ steps.release_version.outputs.RELEASE_TAG }}
+          name: ${{ steps.release_version.outputs.RELEASE_NAME }}
           draft: false
           prerelease: false
           generate_release_notes: false
           files: build/app/outputs/flutter-apk/app-release.apk
-          env:
+        env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-web:
@@ -562,7 +565,7 @@ jobs:
             --base-href '/${{ github.event.repository.name }}/' \
             --source-maps \
             --dart-define=COMMIT_SHA=${{ github.sha }} \
-            --dart-define=SENTRY_RELEASE=happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
+            --dart-define=SENTRY_RELEASE=trip_viewer@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
 
       - name: Upload web source maps to Sentry
         if: ${{ env.SENTRY_AUTH_TOKEN != '' }}
@@ -571,7 +574,7 @@ jobs:
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_DIST: ${{ steps.build_meta.outputs.BUILD_NUMBER }}
-          SENTRY_RELEASE: happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
+          SENTRY_RELEASE: trip_viewer@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
 
       - name: Cache-bust assets
         run: |
