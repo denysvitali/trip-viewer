@@ -149,6 +149,15 @@ class _FlightBlockWidgetState extends State<FlightBlockWidget> {
                               flight.arrive.airport.name,
                               _formatDate(flight.arrive.date),
                             ),
+                            if (flight.confirmationNumber != null) ...[
+                              const SizedBox(height: 8),
+                              _buildDetailRow(
+                                theme,
+                                Icons.confirmation_number_outlined,
+                                'Confirmation',
+                                flight.confirmationNumber!,
+                              ),
+                            ],
                             if (widget.expense != null) ...[
                               const SizedBox(height: 8),
                               Row(

@@ -402,10 +402,12 @@ class FlightBlock extends Block {
   final FlightInfo flightInfo;
   final DepartArrive depart;
   final DepartArrive arrive;
+  final String? confirmationNumber;
   FlightBlock({
     required this.flightInfo,
     required this.depart,
     required this.arrive,
+    required this.confirmationNumber,
     super.imageKeys,
     super.price,
     super.expenseId,
