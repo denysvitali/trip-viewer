@@ -64,10 +64,10 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Get dependencies
-        run: devenv shell -- flutter pub get
+        run: devenv shell flutter pub get
 
       - name: Analyze code
-        run: devenv shell -- flutter analyze --no-fatal-infos --no-fatal-warnings
+        run: devenv shell flutter analyze --no-fatal-infos --no-fatal-warnings
 
   test:
     name: Run Tests
@@ -92,10 +92,10 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Get dependencies
-        run: devenv shell -- flutter pub get
+        run: devenv shell flutter pub get
 
       - name: Run tests
-        run: devenv shell -- flutter test --coverage
+        run: devenv shell flutter test --coverage
 
       - name: Upload coverage artifact
         if: always()
@@ -174,12 +174,12 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Get dependencies
-        run: devenv shell -- flutter pub get
+        run: devenv shell flutter pub get
 
       - name: Run golden tests
         # Runs both the phone suite (golden_test.dart) and the tablet suite
         # (tablet_golden_test.dart) in `test/golden/`.
-        run: devenv shell -- flutter test test/golden/
+        run: devenv shell flutter test test/golden/
 
   build-debug:
     name: Build Debug APK
@@ -262,7 +262,7 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Get dependencies
-        run: devenv shell -- flutter pub get
+        run: devenv shell flutter pub get
 
       - name: Stabilize Kotlin compiler
         run: |
@@ -282,7 +282,7 @@ jobs:
 
       - name: Build Debug APK
         run: |
-          devenv shell -- flutter build apk --debug --no-pub \
+          devenv shell flutter build apk --debug --no-pub \
             --target-platform android-arm64 \
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }} \
             --dart-define=SENTRY_RELEASE=happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
@@ -394,7 +394,7 @@ jobs:
 
       - name: Get dependencies
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
-        run: devenv shell -- flutter pub get
+        run: devenv shell flutter pub get
 
       - name: Stabilize Kotlin compiler
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
@@ -422,7 +422,7 @@ jobs:
           KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
           GRADLE_OPTS: '-Dorg.gradle.jvmargs=-Xmx4g'
         run: |
-          devenv shell -- flutter build apk --release --no-pub \
+          devenv shell flutter build apk --release --no-pub \
             --target-platform android-arm64 \
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }} \
             --dart-define=SENTRY_RELEASE=happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }} \
@@ -432,7 +432,7 @@ jobs:
       - name: Upload debug symbols to Sentry
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' && env.SENTRY_AUTH_TOKEN != '' }}
         run: |
-          devenv shell -- flutter pub run sentry_dart_plugin
+          devenv shell flutter pub run sentry_dart_plugin
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_DIST: ${{ steps.build_meta.outputs.BUILD_NUMBER }}
@@ -502,7 +502,7 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Get dependencies
-        run: devenv shell -- flutter pub get
+        run: devenv shell flutter pub get
 
       - name: Compute build metadata
         id: build_meta
@@ -512,7 +512,7 @@ jobs:
 
       - name: Build Web
         run: |
-          devenv shell -- flutter build web --release \
+          devenv shell flutter build web --release \
             --base-href '/${{ github.event.repository.name }}/' \
             --source-maps \
             --dart-define=COMMIT_SHA=${{ github.sha }} \
@@ -521,7 +521,7 @@ jobs:
       - name: Upload web source maps to Sentry
         if: ${{ env.SENTRY_AUTH_TOKEN != '' }}
         run: |
-          devenv shell -- flutter pub run sentry_dart_plugin
+          devenv shell flutter pub run sentry_dart_plugin
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_DIST: ${{ steps.build_meta.outputs.BUILD_NUMBER }}
