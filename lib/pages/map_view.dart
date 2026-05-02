@@ -364,14 +364,58 @@ class _MapViewState extends State<MapView> {
 
   void _fitVisiblePlaces() {
     if (_mapController == null || _visiblePoints.isEmpty) return;
+
+    if (_visiblePoints.length == 1) {
+      _mapController!.animateCamera(
+        CameraUpdate.newLatLngZoom(_visiblePoints.first, 14),
+        duration: const Duration(milliseconds: 500),
+      );
+      return;
+    }
+
+    final bounds = _boundsForPoints(_visiblePoints);
+    final size = MediaQuery.sizeOf(context);
+    final topPadding = _tripDays.isEmpty ? 32.0 : 92.0;
+    final bottomPadding = (size.height * 0.36).clamp(180.0, 320.0);
+
     _mapController!.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: _centerPoint,
-          zoom: _visiblePoints.length == 1 ? 14 : 10,
-        ),
+      CameraUpdate.newLatLngBounds(
+        bounds,
+        left: 48,
+        top: topPadding,
+        right: 48,
+        bottom: bottomPadding,
       ),
       duration: const Duration(milliseconds: 500),
+    );
+  }
+
+  LatLngBounds _boundsForPoints(List<LatLng> points) {
+    var minLat = points.first.latitude;
+    var maxLat = points.first.latitude;
+    var minLng = points.first.longitude;
+    var maxLng = points.first.longitude;
+
+    for (final point in points.skip(1)) {
+      if (point.latitude < minLat) minLat = point.latitude;
+      if (point.latitude > maxLat) maxLat = point.latitude;
+      if (point.longitude < minLng) minLng = point.longitude;
+      if (point.longitude > maxLng) maxLng = point.longitude;
+    }
+
+    const minSpan = 0.01;
+    if ((maxLat - minLat).abs() < minSpan) {
+      minLat -= minSpan / 2;
+      maxLat += minSpan / 2;
+    }
+    if ((maxLng - minLng).abs() < minSpan) {
+      minLng -= minSpan / 2;
+      maxLng += minSpan / 2;
+    }
+
+    return LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
     );
   }
 
