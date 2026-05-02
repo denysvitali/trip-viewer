@@ -10,10 +10,11 @@ class TextContainerWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ops = _trimOuterWhitespace(textContainer.ops);
     final List<InlineSpan> textSpans = [];
     final defaultStyle = Theme.of(context).textTheme.bodyMedium;
 
-    for (final op in textContainer.ops) {
+    for (final op in ops) {
       TextStyle style = defaultStyle ?? const TextStyle();
       GestureRecognizer? recognizer;
 
@@ -36,7 +37,7 @@ class TextContainerWidget extends StatelessWidget {
               final uri = Uri.tryParse(link);
               if (uri != null && await canLaunchUrl(uri)) {
                 await launchUrl(uri);
-              } else {
+              } else if (context.mounted) {
                 // Handle error: could not launch URL
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Could not open link: $link')),
@@ -70,5 +71,34 @@ class TextContainerWidget extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  List<TextOps> _trimOuterWhitespace(List<TextOps> ops) {
+    final plainText = ops.map((op) => op.insert).join();
+    final start = plainText.indexOf(RegExp(r'\S'));
+    if (start == -1) return const [];
+
+    final end = plainText.lastIndexOf(RegExp(r'\S')) + 1;
+    var cursor = 0;
+    final trimmed = <TextOps>[];
+
+    for (final op in ops) {
+      final opStart = cursor;
+      final opEnd = cursor + op.insert.length;
+      cursor = opEnd;
+
+      final keepStart = start.clamp(opStart, opEnd).toInt() - opStart;
+      final keepEnd = end.clamp(opStart, opEnd).toInt() - opStart;
+      if (keepStart >= keepEnd) continue;
+
+      trimmed.add(
+        TextOps(
+          insert: op.insert.substring(keepStart, keepEnd),
+          attributes: op.attributes,
+        ),
+      );
+    }
+
+    return trimmed;
   }
 }
