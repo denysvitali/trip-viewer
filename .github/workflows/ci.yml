@@ -44,26 +44,17 @@ jobs:
   analyze:
     name: Analyze Code
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: devenv shell bash -- -e {0}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           lfs: true
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-
-      - name: Enable Nix binary cache for devenv
-        uses: cachix/cachix-action@v16
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          name: devenv
-
-      - name: Install devenv
-        shell: bash
-        run: nix profile add nixpkgs#devenv
+          channel: stable
+          flutter-version: 3.38.7
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -83,24 +74,15 @@ jobs:
     name: Run Tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    defaults:
-      run:
-        shell: devenv shell bash -- -e {0}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-
-      - name: Enable Nix binary cache for devenv
-        uses: cachix/cachix-action@v16
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          name: devenv
-
-      - name: Install devenv
-        shell: bash
-        run: nix profile add nixpkgs#devenv
+          channel: stable
+          flutter-version: 3.38.7
 
 
       - name: Cache pub dependencies
@@ -171,9 +153,6 @@ jobs:
     name: Golden Screenshots
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    defaults:
-      run:
-        shell: devenv shell bash -- -e {0}
     # Run on PRs to main to catch regressions; skip on draft PRs
     if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     steps:
@@ -182,17 +161,11 @@ jobs:
         with:
           lfs: true
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-
-      - name: Enable Nix binary cache for devenv
-        uses: cachix/cachix-action@v16
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          name: devenv
-
-      - name: Install devenv
-        shell: bash
-        run: nix profile add nixpkgs#devenv
+          channel: stable
+          flutter-version: 3.38.7
 
 
       - name: Cache pub dependencies
@@ -554,26 +527,17 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-    defaults:
-      run:
-        shell: devenv shell bash -- -e {0}
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-
-      - name: Enable Nix binary cache for devenv
-        uses: cachix/cachix-action@v16
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          name: devenv
-
-      - name: Install devenv
-        shell: bash
-        run: nix profile add nixpkgs#devenv
+          channel: stable
+          flutter-version: 3.38.7
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
