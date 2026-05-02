@@ -110,6 +110,8 @@ jobs:
     name: Upload Coverage
     needs: test
     runs-on: ubuntu-latest
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     if: always() && needs.test.result == 'success'
     steps:
       - name: Checkout repository
@@ -138,7 +140,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y curl
 
       - name: Upload coverage to Codecov
-        if: ${{ secrets.CODECOV_TOKEN != '' }}
+        if: ${{ env.CODECOV_TOKEN != '' }}
         uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
