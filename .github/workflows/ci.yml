@@ -50,17 +50,11 @@ jobs:
         with:
           lfs: true
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
       - name: Cache pub dependencies
         uses: actions/cache@v5
         with:
@@ -70,10 +64,10 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Get dependencies
-        run: flutter pub get
+        run: devenv shell -- flutter pub get
 
       - name: Analyze code
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        run: devenv shell -- flutter analyze --no-fatal-infos --no-fatal-warnings
 
   test:
     name: Run Tests
@@ -83,16 +77,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -103,10 +92,10 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Get dependencies
-        run: flutter pub get
+        run: devenv shell -- flutter pub get
 
       - name: Run tests
-        run: flutter test --coverage
+        run: devenv shell -- flutter test --coverage
 
       - name: Upload coverage artifact
         if: always()
@@ -168,16 +157,11 @@ jobs:
         with:
           lfs: true
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -188,12 +172,12 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Get dependencies
-        run: flutter pub get
+        run: devenv shell -- flutter pub get
 
       - name: Run golden tests
         # Runs both the phone suite (golden_test.dart) and the tablet suite
         # (tablet_golden_test.dart) in `test/golden/`.
-        run: flutter test test/golden/
+        run: devenv shell -- flutter test test/golden/
 
   build-debug:
     name: Build Debug APK
@@ -245,16 +229,11 @@ jobs:
           sudo rm -rf /usr/share/swift
           df -h
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
 
       - name: Setup Android NDK
         run: |
@@ -281,7 +260,7 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Get dependencies
-        run: flutter pub get
+        run: devenv shell -- flutter pub get
 
       - name: Stabilize Kotlin compiler
         run: |
@@ -301,7 +280,7 @@ jobs:
 
       - name: Build Debug APK
         run: |
-          flutter build apk --debug --no-pub \
+          devenv shell -- flutter build apk --debug --no-pub \
             --target-platform android-arm64 \
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }} \
             --dart-define=SENTRY_RELEASE=happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
@@ -376,18 +355,13 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
-      - name: Setup Java
+      - name: Install Nix
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
+        uses: cachix/install-nix-action@v31
 
-      - name: Setup Flutter
+      - name: Install devenv
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
+        run: nix profile install nixpkgs#devenv
 
       - name: Setup Android NDK
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
@@ -418,7 +392,7 @@ jobs:
 
       - name: Get dependencies
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
-        run: flutter pub get
+        run: devenv shell -- flutter pub get
 
       - name: Stabilize Kotlin compiler
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' }}
@@ -446,7 +420,7 @@ jobs:
           KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
           GRADLE_OPTS: '-Dorg.gradle.jvmargs=-Xmx4g'
         run: |
-          flutter build apk --release --no-pub \
+          devenv shell -- flutter build apk --release --no-pub \
             --target-platform android-arm64 \
             --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }} \
             --dart-define=SENTRY_RELEASE=happy_flutter@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }} \
@@ -456,7 +430,7 @@ jobs:
       - name: Upload debug symbols to Sentry
         if: ${{ steps.check_keystore.outputs.skip_release != 'true' && env.SENTRY_AUTH_TOKEN != '' }}
         run: |
-          flutter pub run sentry_dart_plugin
+          devenv shell -- flutter pub run sentry_dart_plugin
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_DIST: ${{ steps.build_meta.outputs.BUILD_NUMBER }}
@@ -511,10 +485,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
 
       - name: Cache pub dependencies
         uses: actions/cache@v5
@@ -525,7 +500,7 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Get dependencies
-        run: flutter pub get
+        run: devenv shell -- flutter pub get
 
       - name: Compute build metadata
         id: build_meta
@@ -535,7 +510,7 @@ jobs:
 
       - name: Build Web
         run: |
-          flutter build web --release \
+          devenv shell -- flutter build web --release \
             --base-href '/${{ github.event.repository.name }}/' \
             --source-maps \
             --dart-define=COMMIT_SHA=${{ github.sha }} \
@@ -544,7 +519,7 @@ jobs:
       - name: Upload web source maps to Sentry
         if: ${{ env.SENTRY_AUTH_TOKEN != '' }}
         run: |
-          flutter pub run sentry_dart_plugin
+          devenv shell -- flutter pub run sentry_dart_plugin
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_DIST: ${{ steps.build_meta.outputs.BUILD_NUMBER }}
