@@ -128,14 +128,14 @@ class _PlaceBlockWidgetState extends State<PlaceBlockWidget> {
   Widget _buildCompactRow(ThemeData theme) {
     final details = _compactDetails();
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildCompactLeading(theme),
-          const SizedBox(width: 12),
-          Expanded(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildCompactLeading(theme),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(0, 10, 12, 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -199,8 +199,8 @@ class _PlaceBlockWidgetState extends State<PlaceBlockWidget> {
               ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -208,22 +208,18 @@ class _PlaceBlockWidgetState extends State<PlaceBlockWidget> {
     final hasImage = widget.placeBlock.imageKeys.isNotEmpty ||
         (widget.metadata != null && widget.metadata!.imageKeys.isNotEmpty);
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SizedBox(
-        width: 44,
-        height: 44,
-        child: hasImage
-            ? PlaceImage(block: widget.placeBlock, metadata: widget.metadata)
-            : ColoredBox(
-                color: theme.colorScheme.primaryContainer,
-                child: Icon(
-                  Icons.place,
-                  size: 22,
-                  color: theme.colorScheme.onPrimaryContainer,
-                ),
+    return SizedBox(
+      width: 88,
+      child: hasImage
+          ? PlaceImage(block: widget.placeBlock, metadata: widget.metadata)
+          : ColoredBox(
+              color: theme.colorScheme.primaryContainer,
+              child: Icon(
+                Icons.place,
+                size: 22,
+                color: theme.colorScheme.onPrimaryContainer,
               ),
-      ),
+            ),
     );
   }
 
