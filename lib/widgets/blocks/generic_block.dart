@@ -1,8 +1,8 @@
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:trip_viewer/models/trip_plan.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class GenericBlock extends StatelessWidget {
   final PlaceBlock block;
@@ -16,16 +16,37 @@ class GenericBlock extends StatelessWidget {
     this.accentColor,
   });
 
+  Uri? _mapsUri() {
+    final url = block.place.url;
+    if (url != null && url.isNotEmpty) {
+      return Uri.tryParse(url);
+    }
+
+    final placeId = block.place.placeId;
+    if (placeId.isEmpty) return null;
+
+    return Uri.https(
+      'www.google.com',
+      '/maps/search/',
+      {
+        'api': '1',
+        'query': block.place.name,
+        'query_place_id': placeId,
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () async {
-          if (block.place.url == null) return;
+          final uri = _mapsUri();
+          if (uri == null) return;
           try {
             await launchUrl(
-              Uri.parse(block.place.url!),
+              uri,
               webOnlyWindowName: '_blank',
               mode: LaunchMode.externalApplication,
             );
