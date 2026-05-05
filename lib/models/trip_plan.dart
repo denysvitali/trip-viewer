@@ -395,6 +395,35 @@ class FlightInfo {
 
   factory FlightInfo.fromJson(Map<String, dynamic> json) =>
       _$FlightInfoFromJson(json);
+
+  String? get airlineCode {
+    final iata = airline.iata?.trim();
+    if (iata != null && iata.isNotEmpty) return iata.toUpperCase();
+
+    final icao = airline.icao?.trim();
+    if (icao != null && icao.isNotEmpty) return icao.toUpperCase();
+
+    return null;
+  }
+
+  String get flightNumber {
+    final code = airlineCode;
+    return code == null ? number.toString() : '$code$number';
+  }
+
+  String get displayName {
+    final airlineName = airline.name?.trim();
+    if (airlineName != null && airlineName.isNotEmpty) {
+      return '$airlineName $number';
+    }
+
+    final localizedName = airline.localizedName?.trim();
+    if (localizedName != null && localizedName.isNotEmpty) {
+      return '$localizedName $number';
+    }
+
+    return flightNumber;
+  }
 }
 
 @JsonSerializable()

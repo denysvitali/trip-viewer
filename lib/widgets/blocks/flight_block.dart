@@ -32,8 +32,8 @@ class _FlightBlockWidgetState extends State<FlightBlockWidget> {
   void _toggleExpanded() => setState(() => _isExpanded = !_isExpanded);
 
   void _openFlightInfo() {
-    final url =
-        "https://www.flightaware.com/live/flight/${widget.flightBlock.flightInfo.airline.icao}${widget.flightBlock.flightInfo.number}/";
+    final flightNumber = widget.flightBlock.flightInfo.flightNumber;
+    final url = "https://www.flightaware.com/live/flight/$flightNumber/";
     launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 
@@ -84,10 +84,9 @@ class _FlightBlockWidgetState extends State<FlightBlockWidget> {
                             child: Column(
                               children: [
                                 Text(
-                                  '${flight.flightInfo.airline.name ?? ''} ${flight.flightInfo.number}',
+                                  flight.flightInfo.displayName,
                                   style: theme.textTheme.labelSmall?.copyWith(
-                                    color:
-                                        theme.colorScheme.onSurfaceVariant,
+                                    color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                   textAlign: TextAlign.center,
                                 ),

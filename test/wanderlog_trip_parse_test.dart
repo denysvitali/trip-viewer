@@ -20,6 +20,24 @@ Future<TripPlanResponse> _fetchAndParseTrip(String tripId) async {
 }
 
 void main() {
+  test('parses Wanderlog shared plan URL trip key', () {
+    final tripId = WanderlogTripProviderClient().parseTripId(
+      'https://wanderlog.com/plan/iwvoaadqemtqneqo/japan-may-2026/shared',
+    );
+
+    expect(tripId, 'iwvoaadqemtqneqo');
+  });
+
+  test('formats IATA-only flight numbers', () {
+    final flightInfo = FlightInfo.fromJson({
+      'airline': {'iata': 'MU'},
+      'number': 244,
+    });
+
+    expect(flightInfo.flightNumber, 'MU244');
+    expect(flightInfo.displayName, 'MU244');
+  });
+
   test('parses another public Wanderlog trip', () async {
     final trip = await _fetchAndParseTrip('vevtulccsc');
 

@@ -284,13 +284,16 @@ class TripPageState extends State<TripPage> {
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
-            if (_lastFetchTime != null)
-              Text(
-                'Updated ${timeago.format(_lastFetchTime!)}',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
+            Text(
+              _lastFetchTime == null
+                  ? 'ID: ${widget.tripId}'
+                  : 'ID: ${widget.tripId} - Updated ${timeago.format(_lastFetchTime!)}',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
         actions: [
