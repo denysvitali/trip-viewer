@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:trip_viewer/models/amount.dart';
 import 'package:trip_viewer/models/saved_trip.dart';
 import 'package:trip_viewer/models/trip_plan.dart';
 import 'package:trip_viewer/services/trip_cache_service.dart';
@@ -18,6 +19,7 @@ import 'package:trip_viewer/pages/expenses.dart';
 import 'package:trip_viewer/pages/budget.dart';
 import 'package:trip_viewer/pages/map_view.dart';
 import 'package:trip_viewer/pages/packing_list.dart';
+import 'package:trip_viewer/pages/trip_info.dart';
 import 'package:trip_viewer/widgets/text_container_widget.dart';
 
 class TripPage extends StatefulWidget {
@@ -313,6 +315,21 @@ class TripPageState extends State<TripPage> {
               context,
               MaterialPageRoute(
                 builder: (context) => MapView(tripPlan: plan!.tripPlan),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: 'Trip Info',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TripInfoPage(
+                  provider: widget.provider,
+                  tripId: widget.tripId,
+                  plan: plan!,
+                  lastFetchTime: _lastFetchTime,
+                ),
               ),
             ),
           ),
@@ -641,6 +658,7 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
           _buildHeader(theme),
+          if (!_isEmpty) _buildDaySummary(theme),
           if (widget.section.text != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -714,6 +732,191 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
         ],
       ),
     );
+  }
+
+  Widget _buildDaySummary(ThemeData theme) {
+    final nextItem = _nextTimedItem();
+    final plannedSpend = _plannedSpendLabel();
+    final summaryItems = <_DaySummaryItem>[
+      if (widget.flights.isNotEmpty)
+        _DaySummaryItem(
+          icon: Icons.flight_takeoff,
+          label: 'Flights',
+          value: widget.flights.length.toString(),
+        ),
+      if (widget.transit.isNotEmpty)
+        _DaySummaryItem(
+          icon: Icons.directions_transit,
+          label: 'Transit',
+          value: widget.transit.length.toString(),
+        ),
+      if (widget.hotels.isNotEmpty)
+        _DaySummaryItem(
+          icon: Icons.hotel,
+          label: 'Lodging',
+          value: widget.hotels.length.toString(),
+        ),
+      if (_activityCount > 0)
+        _DaySummaryItem(
+          icon: Icons.place_outlined,
+          label: 'Stops',
+          value: _activityCount.toString(),
+        ),
+      if (plannedSpend != null)
+        _DaySummaryItem(
+          icon: Icons.receipt_long_outlined,
+          label: 'Known spend',
+          value: plannedSpend,
+        ),
+    ];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withAlpha(120),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.route_outlined,
+                  color: theme.colorScheme.onPrimaryContainer,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'At a glance',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      nextItem == null
+                          ? 'No timed items yet'
+                          : 'Next: ${nextItem.time} - ${nextItem.title}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (summaryItems.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: summaryItems
+                  .map((item) => _DaySummaryChip(item: item))
+                  .toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  int get _activityCount => widget.section.blocks
+      .where((block) => block is PlaceBlock && block.hotel == null)
+      .length;
+
+  _TimedSummaryItem? _nextTimedItem() {
+    final items = <_TimedSummaryItem>[];
+
+    for (final flight in widget.flights) {
+      items.add(
+        _TimedSummaryItem(
+          time: flight.depart.time,
+          title:
+              '${flight.flightInfo.flightNumber} to ${flight.arrive.airport.iata}',
+        ),
+      );
+    }
+
+    for (final transit in widget.transit) {
+      final time = transit.depart.time;
+      if (time == null || time.isEmpty) continue;
+      items.add(
+        _TimedSummaryItem(
+          time: time,
+          title: transit.arrive.place.name,
+        ),
+      );
+    }
+
+    for (final block in widget.section.blocks) {
+      if (block is! PlaceBlock) continue;
+      final time = block.startTime;
+      if (time == null || time.isEmpty) continue;
+      items.add(_TimedSummaryItem(time: time, title: block.place.name));
+    }
+
+    if (items.isEmpty) return null;
+    items.sort((a, b) => a.time.compareTo(b.time));
+    return items.first;
+  }
+
+  String? _plannedSpendLabel() {
+    final expenseIds = <int>{};
+
+    void addExpense(Block block) {
+      final id = block.expenseId;
+      if (id != null) expenseIds.add(id);
+    }
+
+    for (final flight in widget.flights) {
+      addExpense(flight);
+    }
+    for (final hotel in widget.hotels) {
+      addExpense(hotel);
+    }
+    for (final transit in widget.transit) {
+      addExpense(transit);
+    }
+    for (final block in widget.section.blocks) {
+      addExpense(block);
+    }
+
+    final totalsByCurrency = <String, double>{};
+    for (final id in expenseIds) {
+      final expense = widget.expensesById[id];
+      if (expense == null) continue;
+      final currency = expense.amount.currencyCode ?? '';
+      totalsByCurrency[currency] =
+          (totalsByCurrency[currency] ?? 0) + expense.amount.amount;
+    }
+
+    if (totalsByCurrency.isEmpty) return null;
+
+    final labels = totalsByCurrency.entries.map((entry) {
+      return Amount(amount: entry.value, currencyCode: entry.key).format();
+    }).toList()
+      ..sort();
+
+    return labels.join(' + ');
   }
 
   Widget _buildHeader(ThemeData theme) {
@@ -825,6 +1028,64 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
         return TransitType.other;
     }
   }
+}
+
+class _DaySummaryChip extends StatelessWidget {
+  final _DaySummaryItem item;
+
+  const _DaySummaryChip({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(item.icon, size: 15, color: theme.colorScheme.primary),
+          const SizedBox(width: 6),
+          Text(
+            item.value,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            item.label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DaySummaryItem {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _DaySummaryItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+}
+
+class _TimedSummaryItem {
+  final String time;
+  final String title;
+
+  const _TimedSummaryItem({required this.time, required this.title});
 }
 
 class _SectionLabel extends StatelessWidget {
