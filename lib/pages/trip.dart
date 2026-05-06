@@ -318,23 +318,16 @@ class TripPageState extends State<TripPage> {
               ),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            tooltip: 'Trip Info',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => TripInfoPage(
-                  provider: widget.provider,
-                  tripId: widget.tripId,
-                  plan: plan!,
-                  lastFetchTime: _lastFetchTime,
-                ),
-              ),
-            ),
-          ),
           PopupMenuButton(
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'info',
+                child: ListTile(
+                  leading: Icon(Icons.info_outline),
+                  title: Text('Trip Info'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
               const PopupMenuItem(
                 value: 'packing',
                 child: ListTile(
@@ -362,6 +355,19 @@ class TripPageState extends State<TripPage> {
             ],
             onSelected: (value) {
               switch (value) {
+                case 'info':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => TripInfoPage(
+                        provider: widget.provider,
+                        tripId: widget.tripId,
+                        plan: plan!,
+                        lastFetchTime: _lastFetchTime,
+                      ),
+                    ),
+                  );
+                  break;
                 case 'packing':
                   Navigator.push(
                     context,
