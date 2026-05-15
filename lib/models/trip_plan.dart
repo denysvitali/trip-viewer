@@ -49,6 +49,7 @@ class Resources {
 
 @JsonSerializable()
 class TripPlan {
+  @JsonKey(defaultValue: '')
   final String title;
   final int viewCount;
   final Itinerary itinerary;
@@ -145,6 +146,7 @@ List<Section> getSections(List<dynamic> json) {
 
 @JsonSerializable()
 class Section {
+  @JsonKey(defaultValue: '')
   final String heading;
   final List<Block> blocks;
   final String? date;

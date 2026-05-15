@@ -54,7 +54,7 @@ Map<String, dynamic> _$ResourcesToJson(Resources instance) => <String, dynamic>{
     };
 
 TripPlan _$TripPlanFromJson(Map<String, dynamic> json) => TripPlan(
-      title: json['title'] as String,
+      title: json['title'] as String? ?? '',
       viewCount: (json['viewCount'] as num?)?.toInt() ?? 0,
       itinerary: Itinerary.fromJson(json['itinerary'] as Map<String, dynamic>),
     );
@@ -123,7 +123,7 @@ Map<String, dynamic> _$BudgetToJson(Budget instance) => <String, dynamic>{
     };
 
 Section _$SectionFromJson(Map<String, dynamic> json) => Section(
-      heading: json['heading'] as String,
+      heading: json['heading'] as String? ?? '',
       date: json['date'] as String?,
       blocks: (json['blocks'] as List<dynamic>)
           .map((e) => Block.fromJson(e as Map<String, dynamic>))

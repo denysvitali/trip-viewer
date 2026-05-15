@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:trip_viewer/models/amount.dart';
@@ -106,8 +108,8 @@ class TripPageState extends State<TripPage> {
       } else {
         await _fetchTripData();
       }
-    } catch (e) {
-      _handleError(e);
+    } catch (e, stackTrace) {
+      _handleError(e, stackTrace);
     }
   }
 
@@ -116,8 +118,9 @@ class TripPageState extends State<TripPage> {
     setState(() => _isRefreshing = true);
     try {
       await _fetchTripData(silent: true);
-    } catch (e) {
+    } catch (e, stackTrace) {
       log('Background refresh failed: $e');
+      unawaited(Sentry.captureException(e, stackTrace: stackTrace));
     }
     if (mounted) {
       setState(() => _isRefreshing = false);
@@ -149,8 +152,12 @@ class TripPageState extends State<TripPage> {
           plan!,
         );
       }
-    } catch (e) {
-      if (!silent) _handleError(e);
+    } catch (e, stackTrace) {
+      if (!silent) {
+        _handleError(e, stackTrace);
+      } else {
+        unawaited(Sentry.captureException(e, stackTrace: stackTrace));
+      }
     }
   }
 
@@ -191,12 +198,13 @@ class TripPageState extends State<TripPage> {
     });
   }
 
-  void _handleError(dynamic e) {
-    if (e is Error) {
-      log('Failed to load trip data: $e', stackTrace: e.stackTrace);
-    } else {
-      log('Failed to load trip data: $e');
-    }
+  void _handleError(Object e, [StackTrace? stackTrace]) {
+    final effectiveStackTrace =
+        stackTrace ?? (e is Error ? e.stackTrace : null);
+    log('Failed to load trip data: $e', stackTrace: effectiveStackTrace);
+    unawaited(
+      Sentry.captureException(e, stackTrace: effectiveStackTrace),
+    );
     if (mounted) {
       ScaffoldMessenger.of(
         context,
