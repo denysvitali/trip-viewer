@@ -21,8 +21,8 @@ Map<String, dynamic> _$TripPlanResponseToJson(TripPlanResponse instance) =>
 PlaceMetadata _$PlaceMetadataFromJson(Map<String, dynamic> json) =>
     PlaceMetadata(
       id: (json['id'] as num).toInt(),
-      name: json['name'] as String,
-      placeId: json['placeId'] as String,
+      name: json['name'] as String? ?? '',
+      placeId: json['placeId'] as String? ?? '',
       generatedDescription: json['generatedDescription'] as String?,
       description: json['description'] as String?,
       imageKeys:
@@ -194,7 +194,7 @@ Map<String, dynamic> _$PlaceBlockToJson(PlaceBlock instance) =>
     };
 
 TextOps _$TextOpsFromJson(Map<String, dynamic> json) => TextOps(
-      insert: json['insert'] as String,
+      insert: json['insert'] as String? ?? '',
       attributes: json['attributes'],
     );
 
@@ -262,12 +262,12 @@ Map<String, dynamic> _$PhotoToJson(Photo instance) => <String, dynamic>{
 
 GooglePlace _$GooglePlaceFromJson(Map<String, dynamic> json) => GooglePlace(
       formattedAddress: json['formatted_address'] as String? ?? '',
-      name: json['name'] as String,
+      name: json['name'] as String? ?? '',
       photos: (json['photos'] as List<dynamic>?)
           ?.map((e) => Photo.fromJson(e as Map<String, dynamic>))
           .toList(),
       url: json['url'] as String?,
-      placeId: json['place_id'] as String,
+      placeId: json['place_id'] as String? ?? '',
       geometry: json['geometry'] == null
           ? null
           : Geometry.fromJson(json['geometry'] as Map<String, dynamic>),
@@ -302,9 +302,9 @@ Map<String, dynamic> _$LocationToJson(Location instance) => <String, dynamic>{
     };
 
 Airport _$AirportFromJson(Map<String, dynamic> json) => Airport(
-      iata: json['iata'] as String,
-      name: json['name'] as String,
-      cityName: json['cityName'] as String,
+      iata: json['iata'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      cityName: json['cityName'] as String? ?? '',
       googlePlace: json['googlePlace'] == null
           ? null
           : GooglePlace.fromJson(json['googlePlace'] as Map<String, dynamic>),
@@ -318,8 +318,8 @@ Map<String, dynamic> _$AirportToJson(Airport instance) => <String, dynamic>{
     };
 
 DepartArrive _$DepartArriveFromJson(Map<String, dynamic> json) => DepartArrive(
-      date: json['date'] as String,
-      time: json['time'] as String,
+      date: json['date'] as String? ?? '',
+      time: json['time'] as String? ?? '',
       airport: Airport.fromJson(json['airport'] as Map<String, dynamic>),
     );
 
@@ -332,7 +332,7 @@ Map<String, dynamic> _$DepartArriveToJson(DepartArrive instance) =>
 
 DepartArrivePlace _$DepartArrivePlaceFromJson(Map<String, dynamic> json) =>
     DepartArrivePlace(
-      date: json['date'] as String,
+      date: json['date'] as String? ?? '',
       time: json['time'] as String?,
       place: GooglePlace.fromJson(json['place'] as Map<String, dynamic>),
     );

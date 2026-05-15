@@ -16,7 +16,9 @@ class TripPlanResponse {
 @JsonSerializable()
 class PlaceMetadata {
   final int id;
+  @JsonKey(defaultValue: '')
   final String name;
+  @JsonKey(defaultValue: '')
   final String placeId;
   final String? generatedDescription;
   final String? description;
@@ -239,6 +241,7 @@ class PlaceBlock extends Block {
 
 @JsonSerializable()
 class TextOps {
+  @JsonKey(defaultValue: '')
   final String insert;
   final dynamic attributes;
 
@@ -302,8 +305,9 @@ class Photo {
 class GooglePlace {
   @JsonKey(name: 'formatted_address', defaultValue: '')
   final String formattedAddress;
-  @JsonKey(name: 'place_id')
+  @JsonKey(name: 'place_id', defaultValue: '')
   final String placeId;
+  @JsonKey(defaultValue: '')
   final String name;
   final List<Photo>? photos;
   final String? url;
@@ -345,8 +349,11 @@ class Location {
 
 @JsonSerializable()
 class Airport {
+  @JsonKey(defaultValue: '')
   final String iata;
+  @JsonKey(defaultValue: '')
   final String name;
+  @JsonKey(defaultValue: '')
   final String cityName;
   final GooglePlace? googlePlace;
 
@@ -362,7 +369,9 @@ class Airport {
 
 @JsonSerializable()
 class DepartArrive {
+  @JsonKey(defaultValue: '')
   final String date;
+  @JsonKey(defaultValue: '')
   final String time;
   final Airport airport;
 
@@ -374,6 +383,7 @@ class DepartArrive {
 
 @JsonSerializable()
 class DepartArrivePlace {
+  @JsonKey(defaultValue: '')
   final String date;
   final String? time;
   final GooglePlace place;

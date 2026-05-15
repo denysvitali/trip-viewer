@@ -162,7 +162,31 @@ class TripPageState extends State<TripPage> {
   }
 
   void _updateTripData(Map<String, dynamic> tripData) {
-    final fetchedPlan = TripPlanResponse.fromJson(tripData);
+    final TripPlanResponse fetchedPlan;
+    try {
+      fetchedPlan = TripPlanResponse.fromJson(tripData);
+    } catch (e, stackTrace) {
+      unawaited(
+        Sentry.captureException(
+          e,
+          stackTrace: stackTrace,
+          withScope: (scope) {
+            scope.setTag('tripId', widget.tripId);
+            scope.setContexts('trip_json_top_level', {
+              'keys': tripData.keys.toList(),
+              'tripPlan_keys':
+                  (tripData['tripPlan'] as Map?)?.keys.toList() ?? const [],
+              'itinerary_keys':
+                  ((tripData['tripPlan'] as Map?)?['itinerary'] as Map?)
+                          ?.keys
+                          .toList() ??
+                      const [],
+            });
+          },
+        ),
+      );
+      rethrow;
+    }
     final dates = fetchedPlan.tripPlan.itinerary.sections
         .where((s) => s.date != null)
         .map((s) => DateTime.parse(s.date!))
