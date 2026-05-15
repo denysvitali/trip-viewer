@@ -13,6 +13,8 @@ An alternative Flutter client for viewing trip itineraries. Fetches trip data fr
 flutter pub get
 
 # Code generation (required after model changes)
+# Never hand-edit generated files (e.g. *.g.dart, *.gen.dart, *.freezed.dart,
+# *.config.dart, l10n/*.dart). Change the source and rerun build_runner / gen-l10n.
 flutter pub run build_runner build --delete-conflicting-outputs
 
 # Localization generation

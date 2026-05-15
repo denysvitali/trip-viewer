@@ -25,8 +25,10 @@ PlaceMetadata _$PlaceMetadataFromJson(Map<String, dynamic> json) =>
       placeId: json['placeId'] as String? ?? '',
       generatedDescription: json['generatedDescription'] as String?,
       description: json['description'] as String?,
-      imageKeys:
-          (json['imageKeys'] as List<dynamic>).map((e) => e as String).toList(),
+      imageKeys: (json['imageKeys'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
       rating: (json['rating'] as num?)?.toDouble(),
       numRatings: (json['numRatings'] as num?)?.toInt(),
     );
@@ -80,7 +82,7 @@ Map<String, dynamic> _$ItineraryToJson(Itinerary instance) => <String, dynamic>{
     };
 
 PaidByUser _$PaidByUserFromJson(Map<String, dynamic> json) => PaidByUser(
-      type: json['type'] as String,
+      type: json['type'] as String? ?? '',
       id: (json['id'] as num).toInt(),
     );
 
@@ -91,7 +93,7 @@ Map<String, dynamic> _$PaidByUserToJson(PaidByUser instance) =>
     };
 
 SplitWith _$SplitWithFromJson(Map<String, dynamic> json) => SplitWith(
-      type: json['type'] as String,
+      type: json['type'] as String? ?? '',
       users: SplitWith._usersFromJson(json['users'] as List?),
     );
 
@@ -141,7 +143,7 @@ Map<String, dynamic> _$SectionToJson(Section instance) => <String, dynamic>{
     };
 
 Block _$BlockFromJson(Map<String, dynamic> json) => Block(
-      type: json['type'] as String,
+      type: json['type'] as String? ?? '',
       imageKeys: (json['imageKeys'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
@@ -251,7 +253,7 @@ Map<String, dynamic> _$AirlineToJson(Airline instance) => <String, dynamic>{
 Photo _$PhotoFromJson(Map<String, dynamic> json) => Photo(
       height: (json['height'] as num).toInt(),
       width: (json['width'] as num).toInt(),
-      photoReference: json['photo_reference'] as String,
+      photoReference: json['photo_reference'] as String? ?? '',
     );
 
 Map<String, dynamic> _$PhotoToJson(Photo instance) => <String, dynamic>{
@@ -401,7 +403,7 @@ TransitBlock _$TransitBlockFromJson(Map<String, dynamic> json) => TransitBlock(
           DepartArrivePlace.fromJson(json['arrive'] as Map<String, dynamic>),
       confirmationNumber: json['confirmationNumber'] as String?,
       carrier: json['carrier'] as String?,
-      type: json['type'] as String,
+      type: json['type'] as String? ?? '',
       price: json['price'] == null
           ? null
           : Expense.fromJson(json['price'] as Map<String, dynamic>),

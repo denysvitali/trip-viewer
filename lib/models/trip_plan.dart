@@ -24,6 +24,7 @@ class PlaceMetadata {
   final String? description;
   final double? rating;
   final int? numRatings;
+  @JsonKey(defaultValue: <String>[])
   List<String> imageKeys = [];
 
   PlaceMetadata({
@@ -85,6 +86,7 @@ class Itinerary {
 
 @JsonSerializable()
 class PaidByUser {
+  @JsonKey(defaultValue: '')
   final String type;
   final int id;
 
@@ -96,6 +98,7 @@ class PaidByUser {
 
 @JsonSerializable()
 class SplitWith {
+  @JsonKey(defaultValue: '')
   final String type;
   @JsonKey(fromJson: _usersFromJson)
   final List<dynamic> users;
@@ -182,6 +185,7 @@ Block getBlock(Map<String, dynamic> json) {
 
 @JsonSerializable()
 class Block {
+  @JsonKey(defaultValue: '')
   final String type;
   final List<String> imageKeys;
   final Expense? price;
@@ -207,10 +211,10 @@ class Block {
         return TransitBlock.fromJson(json);
     }
     return Block(
-        type: json['type'],
-        imageKeys: json['image_keys'] ?? [],
+        type: json['type'] as String? ?? '',
+        imageKeys: (json['image_keys'] as List?)?.cast<String>() ?? const [],
         price: json['price'] != null ? Expense.fromJson(json['price']) : null,
-        expenseId: json['expenseId']);
+        expenseId: json['expenseId'] as int?);
   }
 }
 
@@ -290,7 +294,7 @@ class Photo {
   final int height;
   final int width;
 
-  @JsonKey(name: 'photo_reference')
+  @JsonKey(name: 'photo_reference', defaultValue: '')
   final String photoReference;
 
   Photo(
