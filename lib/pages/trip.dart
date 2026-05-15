@@ -1,12 +1,14 @@
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:trip_viewer/models/amount.dart';
 import 'package:trip_viewer/models/saved_trip.dart';
 import 'package:trip_viewer/models/trip_plan.dart';
+import 'package:trip_viewer/services/day_text_formatter.dart';
 import 'package:trip_viewer/services/trip_cache_service.dart';
 import 'package:trip_viewer/services/trip_provider_service.dart';
 import 'package:trip_viewer/services/trip_storage_service.dart';
@@ -447,6 +449,9 @@ class TripPageState extends State<TripPage> {
               section: section,
               placeMetadata: pm,
               expensesById: expensesById,
+              tripTitle: plan!.tripPlan.title,
+              tripId: widget.tripId,
+              provider: widget.provider,
               onRefresh: () => _fetchTripData(),
             );
           }
@@ -473,6 +478,9 @@ class TripPageState extends State<TripPage> {
             placeMetadata: pm,
             expensesById: expensesById,
             compactMode: _compactMode,
+            tripTitle: plan!.tripPlan.title,
+            tripId: widget.tripId,
+            provider: widget.provider,
             onRefresh: () => _fetchTripData(),
           );
         },
@@ -622,6 +630,9 @@ class DayView extends StatefulWidget {
   final Map<String, PlaceMetadata> placeMetadata;
   final Map<int, Expense> expensesById;
   final bool compactMode;
+  final String tripTitle;
+  final String tripId;
+  final TripProvider provider;
   final Future<void> Function()? onRefresh;
 
   const DayView({
@@ -633,6 +644,9 @@ class DayView extends StatefulWidget {
     required this.transit,
     required this.placeMetadata,
     required this.expensesById,
+    required this.tripTitle,
+    required this.tripId,
+    required this.provider,
     this.compactMode = false,
     this.onRefresh,
   });
@@ -990,8 +1004,33 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
               ],
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.copy_outlined),
+            tooltip: 'Copy day',
+            onPressed: _copyDay,
+          ),
         ],
       ),
+    );
+  }
+
+  Future<void> _copyDay() async {
+    final text = formatDayAsText(
+      tripTitle: widget.tripTitle,
+      tripId: widget.tripId,
+      provider: widget.provider,
+      date: widget.date,
+      section: widget.section,
+      flights: widget.flights,
+      hotels: widget.hotels,
+      transit: widget.transit,
+      placeMetadata: widget.placeMetadata,
+      expensesById: widget.expensesById,
+    );
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Day copied to clipboard')),
     );
   }
 
@@ -1130,6 +1169,9 @@ class UnscheduledSectionView extends StatefulWidget {
   final Section section;
   final Map<String, PlaceMetadata> placeMetadata;
   final Map<int, Expense> expensesById;
+  final String tripTitle;
+  final String tripId;
+  final TripProvider provider;
   final Future<void> Function()? onRefresh;
 
   const UnscheduledSectionView({
@@ -1137,6 +1179,9 @@ class UnscheduledSectionView extends StatefulWidget {
     required this.section,
     required this.placeMetadata,
     required this.expensesById,
+    required this.tripTitle,
+    required this.tripId,
+    required this.provider,
     this.onRefresh,
   });
 
@@ -1207,6 +1252,11 @@ class _UnscheduledSectionViewState extends State<UnscheduledSectionView>
                     ],
                   ),
                 ),
+                IconButton(
+                  icon: const Icon(Icons.copy_outlined),
+                  tooltip: 'Copy section',
+                  onPressed: _copySection,
+                ),
               ],
             ),
           ),
@@ -1269,6 +1319,22 @@ class _UnscheduledSectionViewState extends State<UnscheduledSectionView>
       default:
         return TransitType.other;
     }
+  }
+
+  Future<void> _copySection() async {
+    final text = formatUnscheduledSectionAsText(
+      tripTitle: widget.tripTitle,
+      tripId: widget.tripId,
+      provider: widget.provider,
+      section: widget.section,
+      placeMetadata: widget.placeMetadata,
+      expensesById: widget.expensesById,
+    );
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Section copied to clipboard')),
+    );
   }
 }
 
