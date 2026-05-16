@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:trip_viewer/models/trip_plan.dart';
 import 'package:trip_viewer/theme/app_theme.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 enum TransitType { bus, train, other }
 
@@ -33,6 +34,31 @@ class _TransitBlockWidgetState extends State<TransitBlockWidget> {
   }
 
   void _toggleExpanded() => setState(() => _isExpanded = !_isExpanded);
+
+  Future<void> _openStation(GooglePlace place) async {
+    final url = place.url;
+    if (url != null && url.isNotEmpty) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      return;
+    }
+
+    final location = place.geometry?.location;
+    Uri? fallback;
+    if (location != null) {
+      final label = Uri.encodeComponent(
+          place.name.isNotEmpty ? place.name : place.formattedAddress);
+      fallback = Uri.parse(
+          'https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}&query_place_id=$label');
+    } else {
+      final query = place.formattedAddress.isNotEmpty
+          ? place.formattedAddress
+          : place.name;
+      if (query.isEmpty) return;
+      fallback = Uri.parse(
+          'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(query)}');
+    }
+    await launchUrl(fallback, mode: LaunchMode.externalApplication);
+  }
 
   IconData _getIcon() {
     switch (widget.transitType) {
@@ -83,11 +109,14 @@ class _TransitBlockWidgetState extends State<TransitBlockWidget> {
                       // Compact route row
                       Row(
                         children: [
-                          _StationName(
-                            name: transit.depart.place.name,
-                            time: transit.depart.time != null
-                                ? _formatTime(transit.depart.time!)
-                                : null,
+                          GestureDetector(
+                            onLongPress: () => _openStation(transit.depart.place),
+                            child: _StationName(
+                              name: transit.depart.place.name,
+                              time: transit.depart.time != null
+                                  ? _formatTime(transit.depart.time!)
+                                  : null,
+                            ),
                           ),
                           Expanded(
                             child: Column(
@@ -129,11 +158,14 @@ class _TransitBlockWidgetState extends State<TransitBlockWidget> {
                               ],
                             ),
                           ),
-                          _StationName(
-                            name: transit.arrive.place.name,
-                            time: transit.arrive.time != null
-                                ? _formatTime(transit.arrive.time!)
-                                : null,
+                          GestureDetector(
+                            onLongPress: () => _openStation(transit.arrive.place),
+                            child: _StationName(
+                              name: transit.arrive.place.name,
+                              time: transit.arrive.time != null
+                                  ? _formatTime(transit.arrive.time!)
+                                  : null,
+                            ),
                           ),
                         ],
                       ),
