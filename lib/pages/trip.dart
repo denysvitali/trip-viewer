@@ -84,88 +84,179 @@ class TripPageState extends State<TripPage> {
 
   /// Stale-while-revalidate: show cached data immediately, refresh in background
   Future<void> _loadTripWithCache() async {
+    final transaction = _startTripLoadTransaction('TripPage load');
     try {
-      await TripStorageService.updateLastAccessed(
-        widget.provider,
-        widget.tripId,
+      await _runSpan(
+        transaction,
+        'storage.update_last_accessed',
+        'Update saved trip access time',
+        () => TripStorageService.updateLastAccessed(
+          widget.provider,
+          widget.tripId,
+        ),
       );
-      final cachedData = await TripCacheService.getCachedTrip(
-        widget.provider,
-        widget.tripId,
+      final cachedData = await _runSpan(
+        transaction,
+        'cache.read',
+        'Read cached trip data',
+        () => TripCacheService.getCachedTrip(
+          widget.provider,
+          widget.tripId,
+        ),
       );
-      _lastFetchTime = await TripCacheService.getLastFetchTime(
-        widget.provider,
-        widget.tripId,
+      _lastFetchTime = await _runSpan(
+        transaction,
+        'cache.read_timestamp',
+        'Read cached trip timestamp',
+        () => TripCacheService.getLastFetchTime(
+          widget.provider,
+          widget.tripId,
+        ),
       );
 
       if (cachedData != null) {
-        _updateTripData(cachedData);
-        if (await TripCacheService.shouldRefresh(
-          widget.provider,
-          widget.tripId,
-        )) {
+        transaction.setData('cache.hit', true);
+        _updateTripData(
+          cachedData,
+          parentSpan: transaction,
+          source: 'cache',
+        );
+        final shouldRefresh = await _runSpan(
+          transaction,
+          'cache.ttl_check',
+          'Check cached trip freshness',
+          () => TripCacheService.shouldRefresh(
+            widget.provider,
+            widget.tripId,
+          ),
+        );
+        if (shouldRefresh) {
           _refreshInBackground();
         }
       } else {
-        await _fetchTripData();
+        transaction.setData('cache.hit', false);
+        await _fetchTripData(parentSpan: transaction);
       }
+      transaction.status = const SpanStatus.ok();
     } catch (e, stackTrace) {
+      transaction
+        ..throwable = e
+        ..status = const SpanStatus.internalError();
       _handleError(e, stackTrace);
+    } finally {
+      await transaction.finish(
+        status: transaction.status ?? const SpanStatus.ok(),
+      );
     }
   }
 
   Future<void> _refreshInBackground() async {
     if (_isRefreshing) return;
     setState(() => _isRefreshing = true);
+    final transaction =
+        _startTripLoadTransaction('TripPage background refresh');
     try {
-      await _fetchTripData(silent: true);
+      await _fetchTripData(silent: true, parentSpan: transaction);
+      transaction.status = const SpanStatus.ok();
     } catch (e, stackTrace) {
+      transaction
+        ..throwable = e
+        ..status = const SpanStatus.internalError();
       log('Background refresh failed: $e');
       unawaited(Sentry.captureException(e, stackTrace: stackTrace));
+    } finally {
+      await transaction.finish(
+        status: transaction.status ?? const SpanStatus.ok(),
+      );
     }
     if (mounted) {
       setState(() => _isRefreshing = false);
     }
   }
 
-  Future<void> _fetchTripData({bool silent = false}) async {
+  Future<void> _fetchTripData({
+    bool silent = false,
+    ISentrySpan? parentSpan,
+  }) async {
+    final transaction =
+        parentSpan ?? _startTripLoadTransaction('TripPage fetch trip');
     try {
       log("Fetching trip data for ${widget.tripId}");
-      final tripData = await TripProviderService.fetchTrip(
-        provider: widget.provider,
-        tripId: widget.tripId,
+      final tripData = await _runSpan(
+        transaction,
+        'http.client',
+        'Fetch trip from provider',
+        () => TripProviderService.fetchTrip(
+          provider: widget.provider,
+          tripId: widget.tripId,
+        ),
       );
 
-      await TripCacheService.cacheTrip(
-        widget.provider,
-        widget.tripId,
-        tripData,
+      await _runSpan(
+        transaction,
+        'cache.write',
+        'Write fetched trip cache',
+        () => TripCacheService.cacheTrip(
+          widget.provider,
+          widget.tripId,
+          tripData,
+        ),
       );
       _lastFetchTime = DateTime.now();
 
-      _updateTripData(tripData);
+      _updateTripData(
+        tripData,
+        parentSpan: transaction,
+        source: 'network',
+      );
 
       // Update trip metadata for trip list
       if (plan != null) {
-        await TripStorageService.updateTripMetadata(
-          widget.provider,
-          widget.tripId,
-          plan!,
+        await _runSpan(
+          transaction,
+          'storage.update_metadata',
+          'Update saved trip metadata',
+          () => TripStorageService.updateTripMetadata(
+            widget.provider,
+            widget.tripId,
+            plan!,
+          ),
         );
       }
+      transaction.status = const SpanStatus.ok();
     } catch (e, stackTrace) {
-      if (!silent) {
+      transaction
+        ..throwable = e
+        ..status = const SpanStatus.internalError();
+      if (parentSpan != null) {
+        rethrow;
+      } else if (!silent) {
         _handleError(e, stackTrace);
       } else {
         unawaited(Sentry.captureException(e, stackTrace: stackTrace));
       }
+    } finally {
+      if (parentSpan == null) {
+        await transaction.finish(
+          status: transaction.status ?? const SpanStatus.ok(),
+        );
+      }
     }
   }
 
-  void _updateTripData(Map<String, dynamic> tripData) {
+  void _updateTripData(
+    Map<String, dynamic> tripData, {
+    ISentrySpan? parentSpan,
+    String? source,
+  }) {
     final TripPlanResponse fetchedPlan;
     try {
-      fetchedPlan = TripPlanResponse.fromJson(tripData);
+      fetchedPlan = _runSyncSpan(
+        parentSpan,
+        'json.parse',
+        'Parse trip provider response',
+        () => TripPlanResponse.fromJson(tripData),
+      );
     } catch (e, stackTrace) {
       unawaited(
         Sentry.captureException(
@@ -188,6 +279,11 @@ class TripPageState extends State<TripPage> {
       );
       rethrow;
     }
+    parentSpan?.setData('trip.source', source);
+    parentSpan?.setData(
+      'trip.section_count',
+      fetchedPlan.tripPlan.itinerary.sections.length,
+    );
     final dates = fetchedPlan.tripPlan.itinerary.sections
         .where((s) => s.date != null)
         .map((s) => DateTime.parse(s.date!))
@@ -221,6 +317,65 @@ class TripPageState extends State<TripPage> {
       }
       _scrollCalendarToIndex(initialPage);
     });
+  }
+
+  ISentrySpan _startTripLoadTransaction(String name) {
+    final transaction = Sentry.startTransaction(
+      name,
+      'trip.load',
+      bindToScope: true,
+    );
+    transaction.setTag('trip.provider', widget.provider.name);
+    transaction.setData('trip.id_length', widget.tripId.length);
+    return transaction;
+  }
+
+  Future<T> _runSpan<T>(
+    ISentrySpan parentSpan,
+    String operation,
+    String description,
+    Future<T> Function() callback,
+  ) async {
+    final span = parentSpan.startChild(
+      operation,
+      description: description,
+    );
+    try {
+      final result = await callback();
+      await span.finish(status: const SpanStatus.ok());
+      return result;
+    } catch (e) {
+      span
+        ..throwable = e
+        ..status = const SpanStatus.internalError();
+      await span.finish(status: span.status);
+      rethrow;
+    }
+  }
+
+  T _runSyncSpan<T>(
+    ISentrySpan? parentSpan,
+    String operation,
+    String description,
+    T Function() callback,
+  ) {
+    if (parentSpan == null) return callback();
+
+    final span = parentSpan.startChild(
+      operation,
+      description: description,
+    );
+    try {
+      final result = callback();
+      unawaited(span.finish(status: const SpanStatus.ok()));
+      return result;
+    } catch (e) {
+      span
+        ..throwable = e
+        ..status = const SpanStatus.internalError();
+      unawaited(span.finish(status: span.status));
+      rethrow;
+    }
   }
 
   void _handleError(Object e, [StackTrace? stackTrace]) {
