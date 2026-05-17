@@ -30,6 +30,17 @@ GitHub Actions runs on GitHub-hosted `ubuntu-latest` runners. Analyze, test,
 Android debug, Android release, and web build jobs are split so they can run on
 separate runners.
 
+## GlitchTip symbol uploads
+
+Release Android builds use Flutter `--split-debug-info` and web builds use
+`--source-maps`. CI uploads those debug symbols and source maps to GlitchTip via
+`sentry_dart_plugin` when the `SENTRY_AUTH_TOKEN` secret is configured. Without
+that secret, CI still uploads `build/debug-info/` as a workflow artifact, but
+GlitchTip events remain harder to symbolicate.
+
+The checked-in plugin config targets the GlitchTip `default/trip-viewer` project
+at `https://glitchtip.k2.k8s.best`.
+
 ## Android release signing secrets
 
 If release builds are skipped with `Keystore not configured`, configure GH Actions

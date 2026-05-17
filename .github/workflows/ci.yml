@@ -484,6 +484,11 @@ jobs:
           SENTRY_DIST: ${{ steps.build_meta.outputs.BUILD_NUMBER }}
           SENTRY_RELEASE: trip_viewer@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
 
+      - name: Warn if debug symbols were not uploaded
+        if: ${{ steps.validate_keystore.outputs.can_release == 'true' && env.SENTRY_AUTH_TOKEN == '' }}
+        run: |
+          echo "::warning::SENTRY_AUTH_TOKEN is not configured; Android debug symbols were archived as an artifact but not uploaded to GlitchTip."
+
       - name: Upload Release APK
         if: ${{ steps.validate_keystore.outputs.can_release == 'true' }}
         uses: actions/upload-artifact@v7
@@ -575,6 +580,11 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_DIST: ${{ steps.build_meta.outputs.BUILD_NUMBER }}
           SENTRY_RELEASE: trip_viewer@1.0.0+${{ steps.build_meta.outputs.BUILD_NUMBER }}
+
+      - name: Warn if web source maps were not uploaded
+        if: ${{ env.SENTRY_AUTH_TOKEN == '' }}
+        run: |
+          echo "::warning::SENTRY_AUTH_TOKEN is not configured; web source maps were built but not uploaded to GlitchTip."
 
       - name: Cache-bust assets
         run: |

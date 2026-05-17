@@ -12,6 +12,12 @@ void main() {
 
     final response = await http.get(url);
 
+    if (response.statusCode >= 500) {
+      markTestSkipped(
+        'Wanderlog API returned ${response.statusCode} for $tripId.',
+      );
+      return;
+    }
     expect(response.statusCode, 200);
 
     final tripData = jsonDecode(response.body);
