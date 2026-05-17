@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer';
 import 'dart:typed_data';
 
@@ -67,8 +66,7 @@ class DartSentryTransport implements Transport {
   }
 
   Map<String, String> _headers() {
-    var auth =
-        'Sentry sentry_version=7, '
+    var auth = 'Sentry sentry_version=7, '
         'sentry_client=${_options.sentryClientName}, '
         'sentry_key=${_dsn.publicKey}';
     final secretKey = _dsn.secretKey;

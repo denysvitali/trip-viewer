@@ -42,26 +42,33 @@ class SavedTrip {
   String get cacheKey => '${provider.name}:$tripId';
 
   Map<String, dynamic> toJson() => {
-    'provider': provider.name,
-    'tripId': tripId,
-    'title': title,
-    'placeCount': placeCount,
-    'startDate': startDate,
-    'endDate': endDate,
-    'firstImageKey': firstImageKey,
-    'addedAt': addedAt,
-    'lastAccessedAt': lastAccessedAt,
-  };
+        'provider': provider.name,
+        'tripId': tripId,
+        'title': title,
+        'placeCount': placeCount,
+        'startDate': startDate,
+        'endDate': endDate,
+        'firstImageKey': firstImageKey,
+        'addedAt': addedAt,
+        'lastAccessedAt': lastAccessedAt,
+      };
 
-  factory SavedTrip.fromJson(Map<String, dynamic> json) => SavedTrip(
-    provider: TripProvider.fromJson(json['provider']),
-    tripId: json['tripId'],
-    title: json['title'],
-    placeCount: json['placeCount'],
-    startDate: json['startDate'],
-    endDate: json['endDate'],
-    firstImageKey: json['firstImageKey'],
-    addedAt: json['addedAt'],
-    lastAccessedAt: json['lastAccessedAt'],
-  );
+  factory SavedTrip.fromJson(Map<String, dynamic> json) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final tripId = json['tripId'] as String?;
+    final addedAt = (json['addedAt'] as num?)?.toInt();
+
+    return SavedTrip(
+      provider: TripProvider.fromJson(json['provider'] as String?),
+      tripId: tripId ?? '',
+      title: json['title'] as String?,
+      placeCount: (json['placeCount'] as num?)?.toInt(),
+      startDate: json['startDate'] as String?,
+      endDate: json['endDate'] as String?,
+      firstImageKey: json['firstImageKey'] as String?,
+      addedAt: addedAt ?? now,
+      lastAccessedAt:
+          (json['lastAccessedAt'] as num?)?.toInt() ?? addedAt ?? now,
+    );
+  }
 }

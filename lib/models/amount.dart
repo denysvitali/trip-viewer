@@ -10,7 +10,10 @@ class Amount {
 
   Amount({required this.amount, this.currencyCode});
 
-  factory Amount.fromJson(Map<String, dynamic> json) => _$AmountFromJson(json);
+  factory Amount.fromJson(Map<String, dynamic> json) => Amount(
+        amount: (json['amount'] as num?)?.toDouble() ?? 0,
+        currencyCode: json['currencyCode'] as String?,
+      );
 
   Map<String, dynamic> toJson() => _$AmountToJson(this);
 

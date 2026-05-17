@@ -198,7 +198,7 @@ class _PackingListPageState extends State<PackingListPage> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _categoryController.text,
+              initialValue: _categoryController.text,
               decoration: const InputDecoration(
                 labelText: 'Category',
               ),
@@ -264,7 +264,7 @@ class _PackingListPageState extends State<PackingListPage> {
                 // Progress indicator
                 Container(
                   padding: const EdgeInsets.all(16),
-                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   child: Column(
                     children: [
                       Row(
@@ -288,7 +288,7 @@ class _PackingListPageState extends State<PackingListPage> {
                         backgroundColor: Theme.of(context)
                             .colorScheme
                             .outline
-                            .withOpacity(0.2),
+                            .withValues(alpha: 0.2),
                         color: Theme.of(context).colorScheme.primary,
                       ),
                     ],

@@ -50,7 +50,7 @@ class _TripListPageState extends State<TripListPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               DropdownButtonFormField<TripProvider>(
-                value: selectedProvider,
+                initialValue: selectedProvider,
                 decoration: const InputDecoration(labelText: 'Provider'),
                 items: TripProviderService.providers
                     .map(
@@ -69,8 +69,8 @@ class _TripListPageState extends State<TripListPage> {
               Text(
                 'Enter a trip ID or paste a trip URL',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -193,8 +193,8 @@ class _TripListPageState extends State<TripListPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _trips.isEmpty
-          ? _buildEmptyState()
-          : _buildTripList(),
+              ? _buildEmptyState()
+              : _buildTripList(),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddTripDialog,
         icon: const Icon(Icons.add),
@@ -224,8 +224,8 @@ class _TripListPageState extends State<TripListPage> {
             Text(
               'Import your first trip to get started',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),

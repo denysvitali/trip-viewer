@@ -18,10 +18,6 @@ Future<void> main() async {
       ..transport = DartSentryTransport(options),
     appRunner: () => runApp(const MyApp()),
   );
-  await Sentry.captureMessage(
-    'trip_viewer started',
-    level: SentryLevel.info,
-  );
 }
 
 class MyApp extends StatelessWidget {

@@ -13,8 +13,18 @@ class TripStorageService {
     final prefs = await SharedPreferences.getInstance();
     final json = prefs.getString(_savedTripsKey);
     if (json == null) return [];
-    final List<dynamic> decoded = jsonDecode(json);
-    final trips = decoded.map((e) => SavedTrip.fromJson(e)).toList();
+    final dynamic decoded;
+    try {
+      decoded = jsonDecode(json);
+    } catch (_) {
+      return [];
+    }
+    if (decoded is! List) return [];
+    final trips = decoded
+        .whereType<Map>()
+        .map((e) => SavedTrip.fromJson(Map<String, dynamic>.from(e)))
+        .where((trip) => trip.tripId.isNotEmpty)
+        .toList();
     trips.sort((a, b) => b.lastAccessedAt.compareTo(a.lastAccessedAt));
     return trips;
   }
@@ -66,9 +76,8 @@ class TripStorageService {
     trip.title = data.tripPlan.title;
     trip.lastAccessedAt = DateTime.now().millisecondsSinceEpoch;
 
-    final sections = data.tripPlan.itinerary.sections
-        .where((s) => s.date != null)
-        .toList();
+    final sections =
+        data.tripPlan.itinerary.sections.where((s) => s.date != null).toList();
     if (sections.isNotEmpty) {
       final dates = sections.map((s) => s.date!).toList()..sort();
       trip.startDate = dates.first;

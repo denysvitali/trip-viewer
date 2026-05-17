@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:trip_viewer/models/saved_trip.dart';
 import 'package:trip_viewer/models/trip_plan.dart';
 
 void main() {
@@ -43,5 +44,48 @@ void main() {
     expect(expense.amount.amount, 0.0);
     expect(expense.blockId, null);
     expect(expense.paidByUserId, 0);
+  });
+
+  test('SavedTrip.fromJson tolerates legacy incomplete entries', () {
+    final savedTrip = SavedTrip.fromJson({
+      'provider': null,
+      'tripId': null,
+      'addedAt': null,
+      'lastAccessedAt': null,
+    });
+
+    expect(savedTrip.provider, TripProvider.wanderlog);
+    expect(savedTrip.tripId, '');
+    expect(savedTrip.addedAt, greaterThan(0));
+    expect(savedTrip.lastAccessedAt, greaterThan(0));
+  });
+
+  test('TripPlanResponse.fromJson tolerates missing optional provider data',
+      () {
+    final plan = TripPlanResponse.fromJson({
+      'tripPlan': {
+        'title': 'Sparse trip',
+        'itinerary': {
+          'sections': [
+            {
+              'heading': 'Day 1',
+              'blocks': [
+                {
+                  'type': 'unknown',
+                  'imageKeys': [null, 'image-1'],
+                  'price': {'amount': null},
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(plan.tripPlan.title, 'Sparse trip');
+    expect(plan.resources.placeMetadata, isEmpty);
+    expect(plan.tripPlan.itinerary.sections.single.blocks.single.imageKeys,
+        ['image-1']);
+    expect(plan.tripPlan.itinerary.budget.expenses, isEmpty);
   });
 }

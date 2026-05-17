@@ -10,7 +10,10 @@ class TripPlanResponse {
 
   const TripPlanResponse({required this.tripPlan, required this.resources});
   factory TripPlanResponse.fromJson(Map<String, dynamic> json) =>
-      _$TripPlanResponseFromJson(json);
+      TripPlanResponse(
+        tripPlan: TripPlan.fromJson(_jsonMap(json['tripPlan'])),
+        resources: Resources.fromJson(_jsonMap(json['resources'])),
+      );
 }
 
 @JsonSerializable()
@@ -46,8 +49,12 @@ class Resources {
   final List<PlaceMetadata> placeMetadata;
 
   Resources({required this.placeMetadata});
-  factory Resources.fromJson(Map<String, dynamic> json) =>
-      _$ResourcesFromJson(json);
+  factory Resources.fromJson(Map<String, dynamic> json) => Resources(
+        placeMetadata: _jsonList(json['placeMetadata'])
+            .whereType<Map>()
+            .map((e) => PlaceMetadata.fromJson(Map<String, dynamic>.from(e)))
+            .toList(),
+      );
 }
 
 @JsonSerializable()
@@ -65,8 +72,11 @@ class TripPlan {
 
   List<Expense> get expenses => itinerary.budget.expenses;
 
-  factory TripPlan.fromJson(Map<String, dynamic> json) =>
-      _$TripPlanFromJson(json);
+  factory TripPlan.fromJson(Map<String, dynamic> json) => TripPlan(
+        title: json['title'] as String? ?? '',
+        viewCount: (json['viewCount'] as num?)?.toInt() ?? 0,
+        itinerary: Itinerary.fromJson(_jsonMap(json['itinerary'])),
+      );
 }
 
 @JsonSerializable()
@@ -80,8 +90,14 @@ class Itinerary {
     required this.budget,
     required this.options,
   });
-  factory Itinerary.fromJson(Map<String, dynamic> json) =>
-      _$ItineraryFromJson(json);
+  factory Itinerary.fromJson(Map<String, dynamic> json) => Itinerary(
+        sections: _jsonList(json['sections'])
+            .whereType<Map>()
+            .map((e) => Section.fromJson(Map<String, dynamic>.from(e)))
+            .toList(),
+        budget: Budget.fromJson(_jsonMap(json['budget'])),
+        options: _jsonMap(json['options']),
+      );
 }
 
 @JsonSerializable()
@@ -92,8 +108,10 @@ class PaidByUser {
 
   PaidByUser({required this.type, required this.id});
 
-  factory PaidByUser.fromJson(Map<String, dynamic> json) =>
-      _$PaidByUserFromJson(json);
+  factory PaidByUser.fromJson(Map<String, dynamic> json) => PaidByUser(
+        type: json['type'] as String? ?? '',
+        id: (json['id'] as num?)?.toInt() ?? 0,
+      );
 }
 
 @JsonSerializable()
@@ -135,7 +153,19 @@ class Budget {
     required this.payments,
     required this.simplifyDebt,
   });
-  factory Budget.fromJson(Map<String, dynamic> json) => _$BudgetFromJson(json);
+  factory Budget.fromJson(Map<String, dynamic> json) => Budget(
+        amount: _amountFromJson(_optionalJsonMap(json['amount'])),
+        expenses: _jsonList(json['expenses'])
+            .whereType<Map>()
+            .map((e) => _tryExpenseFromJson(Map<String, dynamic>.from(e)))
+            .nonNulls
+            .toList(),
+        payments: _jsonList(json['payments'])
+            .whereType<Map>()
+            .map((e) => Payment.fromJson(Map<String, dynamic>.from(e)))
+            .toList(),
+        simplifyDebt: json['simplifyDebt'] as bool? ?? false,
+      );
 
   static Amount _amountFromJson(Map<String, dynamic>? json) {
     if (json == null) {
@@ -163,12 +193,25 @@ class Section {
     required this.blocks,
     this.text,
   });
-  factory Section.fromJson(Map<String, dynamic> json) =>
-      _$SectionFromJson(json);
+  factory Section.fromJson(Map<String, dynamic> json) => Section(
+        heading: json['heading'] as String? ?? '',
+        date: json['date'] as String?,
+        blocks: getBlocks(_jsonList(json['blocks'])),
+        text: json['text'] == null
+            ? null
+            : TextContainer.fromJson(_jsonMap(json['text'])),
+      );
 }
 
 List<Block> getBlocks(List<dynamic> json) {
-  return json.map((block) => getBlock(block)).toList();
+  return json.whereType<Map>().map((block) {
+    final blockJson = Map<String, dynamic>.from(block);
+    try {
+      return getBlock(blockJson);
+    } catch (_) {
+      return Block.fromJson(blockJson);
+    }
+  }).toList();
 }
 
 Block getBlock(Map<String, dynamic> json) {
@@ -212,9 +255,10 @@ class Block {
     }
     return Block(
         type: json['type'] as String? ?? '',
-        imageKeys: (json['image_keys'] as List?)?.cast<String>() ?? const [],
-        price: json['price'] != null ? Expense.fromJson(json['price']) : null,
-        expenseId: json['expenseId'] as int?);
+        imageKeys: _stringList(json['imageKeys'] ?? json['image_keys']),
+        price:
+            json['price'] == null ? null : _tryExpenseFromJson(json['price']),
+        expenseId: (json['expenseId'] as num?)?.toInt());
   }
 }
 
@@ -258,8 +302,12 @@ class TextOps {
 class TextContainer {
   final List<TextOps> ops;
   TextContainer({required this.ops});
-  factory TextContainer.fromJson(Map<String, dynamic> json) =>
-      _$TextContainerFromJson(json);
+  factory TextContainer.fromJson(Map<String, dynamic> json) => TextContainer(
+        ops: _jsonList(json['ops'])
+            .whereType<Map>()
+            .map((e) => TextOps.fromJson(Map<String, dynamic>.from(e)))
+            .toList(),
+      );
 }
 
 @JsonSerializable()
@@ -525,13 +573,52 @@ class Expense {
     required this.associatedDate,
   });
 
-  factory Expense.fromJson(Map<String, dynamic> json) =>
-      _$ExpenseFromJson(json);
+  factory Expense.fromJson(Map<String, dynamic> json) => Expense(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        amount: _amountFromJson(json['amount']),
+        category: json['category'] as String?,
+        description: json['description'] as String?,
+        date: json['date'] as String?,
+        blockId: (json['blockId'] as num?)?.toInt(),
+        paidByUserId: (json['paidByUserId'] as num?)?.toInt() ?? 0,
+        paidByUser: PaidByUser.fromJson(_jsonMap(json['paidByUser'])),
+        splitWith: SplitWith.fromJson(_jsonMap(json['splitWith'])),
+        associatedDate: json['associatedDate'] as String?,
+      );
 
   static Amount _amountFromJson(dynamic json) {
-    if (json == null || !(json is Map<String, dynamic>)) {
+    if (json == null || json is! Map<String, dynamic>) {
       return Amount(amount: 0.0, currencyCode: 'USD');
     }
     return Amount.fromJson(json);
   }
+}
+
+Expense? _tryExpenseFromJson(dynamic value) {
+  if (value is! Map) return null;
+  try {
+    return Expense.fromJson(Map<String, dynamic>.from(value));
+  } catch (_) {
+    return null;
+  }
+}
+
+Map<String, dynamic> _jsonMap(dynamic value) {
+  if (value is Map<String, dynamic>) return value;
+  if (value is Map) return Map<String, dynamic>.from(value);
+  return <String, dynamic>{};
+}
+
+Map<String, dynamic>? _optionalJsonMap(dynamic value) {
+  if (value == null) return null;
+  return _jsonMap(value);
+}
+
+List<dynamic> _jsonList(dynamic value) {
+  if (value is List) return value;
+  return const [];
+}
+
+List<String> _stringList(dynamic value) {
+  return _jsonList(value).whereType<String>().toList();
 }
