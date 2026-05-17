@@ -25,6 +25,7 @@ import 'package:trip_viewer/pages/map_view.dart';
 import 'package:trip_viewer/pages/packing_list.dart';
 import 'package:trip_viewer/pages/trip_info.dart';
 import 'package:trip_viewer/widgets/text_container_widget.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class TripPage extends StatefulWidget {
   final TripProvider provider;
@@ -688,6 +689,8 @@ class DayView extends StatefulWidget {
 }
 
 class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
+  final Map<String, GlobalKey> _timedItemKeys = {};
+
   @override
   bool get wantKeepAlive => true;
 
@@ -719,15 +722,19 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
           if (_isEmpty) _buildEmptyDay(theme),
           if (widget.flights.isNotEmpty) ...[
             _SectionLabel(label: 'Flights', icon: Icons.flight),
-            ...widget.flights.map(
-              (f) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: FlightBlockWidget(
-                  flightBlock: f,
-                  initiallyExpanded: false,
-                  expense: widget.expensesById[f.expenseId],
-                ),
-              ),
+            ...widget.flights.indexed.map(
+              (entry) {
+                final (index, f) = entry;
+                return Padding(
+                  key: _targetKey(_flightTargetId(f, index)),
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: FlightBlockWidget(
+                    flightBlock: f,
+                    initiallyExpanded: false,
+                    expense: widget.expensesById[f.expenseId],
+                  ),
+                );
+              },
             ),
           ],
           if (widget.hotels.isNotEmpty) ...[
@@ -746,23 +753,29 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
           ],
           if (widget.transit.isNotEmpty) ...[
             _SectionLabel(label: 'Transit', icon: Icons.directions_transit),
-            ...widget.transit.map(
-              (t) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: TransitBlockWidget(
-                  transitBlock: t,
-                  transitType: _getTransitType(t.type),
-                  initiallyExpanded: false,
-                  expense: widget.expensesById[t.expenseId],
-                ),
-              ),
+            ...widget.transit.indexed.map(
+              (entry) {
+                final (index, t) = entry;
+                return Padding(
+                  key: _targetKey(_transitTargetId(t, index)),
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: TransitBlockWidget(
+                    transitBlock: t,
+                    transitType: _getTransitType(t.type),
+                    initiallyExpanded: false,
+                    expense: widget.expensesById[t.expenseId],
+                  ),
+                );
+              },
             ),
           ],
           if (widget.section.blocks.isNotEmpty) ...[
             _SectionLabel(label: 'Activities', icon: Icons.place),
-            ...widget.section.blocks.map((b) {
+            ...widget.section.blocks.indexed.map((entry) {
+              final (index, b) = entry;
               if (b is PlaceBlock) {
                 return Padding(
+                  key: _targetKey(_placeTargetId(b, index)),
                   padding: const EdgeInsets.only(bottom: 8),
                   child: PlaceBlockWidget(
                     placeBlock: b,
@@ -822,71 +835,91 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
         ),
     ];
 
-    return Container(
+    return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withAlpha(120),
+      color: theme.colorScheme.surfaceContainerHighest.withAlpha(120),
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  Icons.route_outlined,
-                  color: theme.colorScheme.onPrimaryContainer,
-                  size: 20,
-                ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: nextItem == null ? null : () => _activateNextItem(nextItem),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.route_outlined,
+                      color: theme.colorScheme.onPrimaryContainer,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'At a glance',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          nextItem == null
+                              ? 'No timed items yet'
+                              : 'Next: ${nextItem.time} - ${nextItem.title}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (nextItem != null) ...[
+                    const SizedBox(width: 8),
+                    Icon(
+                      nextItem.place == null
+                          ? Icons.expand_more
+                          : Icons.map_outlined,
+                      size: 20,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ],
+                ],
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+            if (summaryItems.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    Text(
-                      'At a glance',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      nextItem == null
-                          ? 'No timed items yet'
-                          : 'Next: ${nextItem.time} - ${nextItem.title}',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
+                    for (final item in summaryItems)
+                      _DaySummaryChip(item: item),
                   ],
                 ),
               ),
             ],
-          ),
-          if (summaryItems.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: summaryItems
-                  .map((item) => _DaySummaryChip(item: item))
-                  .toList(),
-            ),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -898,37 +931,164 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
   _TimedSummaryItem? _nextTimedItem() {
     final items = <_TimedSummaryItem>[];
 
-    for (final flight in widget.flights) {
+    for (final entry in widget.flights.indexed) {
+      final (index, flight) = entry;
+      final time = _parseTimeOfDay(flight.depart.time);
+      if (time == null) continue;
       items.add(
         _TimedSummaryItem(
           time: flight.depart.time,
+          sortTime: time,
           title:
               '${flight.flightInfo.flightNumber} to ${flight.arrive.airport.iata}',
+          targetId: _flightTargetId(flight, index),
+          place: flight.depart.airport.googlePlace,
         ),
       );
     }
 
-    for (final transit in widget.transit) {
-      final time = transit.depart.time;
-      if (time == null || time.isEmpty) continue;
+    for (final entry in widget.transit.indexed) {
+      final (index, transit) = entry;
+      final rawTime = transit.depart.time;
+      if (rawTime == null || rawTime.isEmpty) continue;
+      final time = _parseTimeOfDay(rawTime);
+      if (time == null) continue;
       items.add(
         _TimedSummaryItem(
-          time: time,
+          time: rawTime,
+          sortTime: time,
           title: transit.arrive.place.name,
+          targetId: _transitTargetId(transit, index),
+          place: transit.depart.place,
         ),
       );
     }
 
-    for (final block in widget.section.blocks) {
+    for (final entry in widget.section.blocks.indexed) {
+      final (index, block) = entry;
       if (block is! PlaceBlock) continue;
-      final time = block.startTime;
-      if (time == null || time.isEmpty) continue;
-      items.add(_TimedSummaryItem(time: time, title: block.place.name));
+      final rawTime = block.startTime;
+      if (rawTime == null || rawTime.isEmpty) continue;
+      final time = _parseTimeOfDay(rawTime);
+      if (time == null) continue;
+      items.add(_TimedSummaryItem(
+        time: rawTime,
+        sortTime: time,
+        title: block.place.name,
+        targetId: _placeTargetId(block, index),
+        place: block.place,
+      ));
     }
 
     if (items.isEmpty) return null;
-    items.sort((a, b) => a.time.compareTo(b.time));
+    items.sort((a, b) => _compareTimes(a.sortTime, b.sortTime));
+
+    if (_isSameDate(widget.date, DateTime.now())) {
+      final now = TimeOfDay.now();
+      for (final item in items) {
+        if (_compareTimes(item.sortTime, now) >= 0) return item;
+      }
+      return items.last;
+    }
+
     return items.first;
+  }
+
+  GlobalKey _targetKey(String targetId) {
+    return _timedItemKeys.putIfAbsent(targetId, GlobalKey.new);
+  }
+
+  String _flightTargetId(FlightBlock flight, int index) {
+    return 'flight-$index-${flight.depart.date}-${flight.depart.time}-${flight.flightInfo.flightNumber}';
+  }
+
+  String _transitTargetId(TransitBlock transit, int index) {
+    return 'transit-$index-${transit.depart.time}-${transit.depart.place.placeId}-${transit.arrive.place.placeId}';
+  }
+
+  String _placeTargetId(PlaceBlock block, int index) {
+    return 'place-$index-${block.startTime}-${block.place.placeId}';
+  }
+
+  TimeOfDay? _parseTimeOfDay(String? value) {
+    if (value == null || value.isEmpty) return null;
+    final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(value);
+    if (match == null) return null;
+    final hour = int.tryParse(match.group(1)!);
+    final minute = int.tryParse(match.group(2)!);
+    if (hour == null || minute == null) return null;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  int _compareTimes(TimeOfDay a, TimeOfDay b) {
+    return (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute);
+  }
+
+  bool _isSameDate(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  Future<void> _activateNextItem(_TimedSummaryItem item) async {
+    if (item.place != null && await _openPlaceInMaps(item.place!)) return;
+    await _scrollToTimedItem(item);
+  }
+
+  Future<bool> _openPlaceInMaps(GooglePlace place) async {
+    final url = place.url;
+    if (url != null && url.isNotEmpty) {
+      final uri = Uri.tryParse(url);
+      if (uri != null &&
+          await launchUrl(
+            uri,
+            mode: LaunchMode.externalApplication,
+            webOnlyWindowName: '_blank',
+          )) {
+        return true;
+      }
+    }
+
+    Uri? uri;
+    if (place.placeId.isNotEmpty) {
+      uri = Uri.https(
+        'www.google.com',
+        '/maps/search/',
+        {
+          'api': '1',
+          'query': place.name,
+          'query_place_id': place.placeId,
+        },
+      );
+    } else {
+      final query = [place.name, place.formattedAddress]
+          .where((part) => part.isNotEmpty)
+          .join(', ');
+      if (query.isNotEmpty) {
+        uri = Uri.https(
+          'www.google.com',
+          '/maps/search/',
+          {'api': '1', 'query': query},
+        );
+      }
+    }
+
+    return uri != null &&
+        await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+          webOnlyWindowName: '_blank',
+        );
+  }
+
+  Future<void> _scrollToTimedItem(_TimedSummaryItem item) async {
+    final targetContext = _timedItemKeys[item.targetId]?.currentContext;
+    if (targetContext == null) return;
+    await Scrollable.ensureVisible(
+      targetContext,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+      alignment: 0.12,
+    );
   }
 
   String? _plannedSpendLabel() {
@@ -1160,9 +1320,18 @@ class _DaySummaryItem {
 
 class _TimedSummaryItem {
   final String time;
+  final TimeOfDay sortTime;
   final String title;
+  final String targetId;
+  final GooglePlace? place;
 
-  const _TimedSummaryItem({required this.time, required this.title});
+  const _TimedSummaryItem({
+    required this.time,
+    required this.sortTime,
+    required this.title,
+    required this.targetId,
+    this.place,
+  });
 }
 
 class _SectionLabel extends StatelessWidget {
