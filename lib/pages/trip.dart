@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:trip_viewer/models/amount.dart';
@@ -44,6 +45,8 @@ class TripPage extends StatefulWidget {
 }
 
 class TripPageState extends State<TripPage> {
+  static const _sortActivitiesByTimeKey = 'sort_activities_by_time';
+
   TripPlanResponse? plan;
   Map<DateTime, List<FlightBlock>> flightsByDate = {};
   Map<DateTime, List<PlaceBlock>> hotelsByDate = {};
@@ -57,10 +60,12 @@ class TripPageState extends State<TripPage> {
   final ScrollController _calendarScrollController = ScrollController();
   int _currentPage = 0;
   bool _compactMode = false;
+  bool _sortActivitiesByTime = true;
 
   @override
   void initState() {
     super.initState();
+    _loadDisplayPreferences();
     _loadTripWithCache();
   }
 
@@ -80,6 +85,20 @@ class TripPageState extends State<TripPage> {
       if (compareDate.isAfter(todayDate)) return i;
     }
     return dates.length - 1;
+  }
+
+  Future<void> _loadDisplayPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _sortActivitiesByTime = prefs.getBool(_sortActivitiesByTimeKey) ?? true;
+    });
+  }
+
+  Future<void> _setSortActivitiesByTime(bool value) async {
+    setState(() => _sortActivitiesByTime = value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_sortActivitiesByTimeKey, value);
   }
 
   /// Stale-while-revalidate: show cached data immediately, refresh in background
@@ -510,6 +529,15 @@ class TripPageState extends State<TripPage> {
           ),
           PopupMenuButton(
             itemBuilder: (context) => [
+              CheckedPopupMenuItem(
+                value: 'sortActivitiesByTime',
+                checked: _sortActivitiesByTime,
+                child: const ListTile(
+                  leading: Icon(Icons.schedule),
+                  title: Text('Sort activities by time'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
               const PopupMenuItem(
                 value: 'info',
                 child: ListTile(
@@ -545,6 +573,11 @@ class TripPageState extends State<TripPage> {
             ],
             onSelected: (value) {
               switch (value) {
+                case 'sortActivitiesByTime':
+                  unawaited(
+                    _setSortActivitiesByTime(!_sortActivitiesByTime),
+                  );
+                  break;
                 case 'info':
                   Navigator.push(
                     context,
@@ -666,6 +699,7 @@ class TripPageState extends State<TripPage> {
             placeMetadata: pm,
             expensesById: expensesById,
             compactMode: _compactMode,
+            sortActivitiesByTime: _sortActivitiesByTime,
             tripTitle: plan!.tripPlan.title,
             tripId: widget.tripId,
             provider: widget.provider,
@@ -818,6 +852,7 @@ class DayView extends StatefulWidget {
   final Map<String, PlaceMetadata> placeMetadata;
   final Map<int, Expense> expensesById;
   final bool compactMode;
+  final bool sortActivitiesByTime;
   final String tripTitle;
   final String tripId;
   final TripProvider provider;
@@ -836,6 +871,7 @@ class DayView extends StatefulWidget {
     required this.tripId,
     required this.provider,
     this.compactMode = false,
+    this.sortActivitiesByTime = true,
     this.onRefresh,
   });
 
@@ -860,6 +896,7 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
+    final activityEntries = _activityEntries();
 
     return RefreshIndicator(
       onRefresh: widget.onRefresh ?? () => Future.value(),
@@ -924,10 +961,11 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
               },
             ),
           ],
-          if (widget.section.blocks.isNotEmpty) ...[
+          if (activityEntries.isNotEmpty) ...[
             _SectionLabel(label: 'Activities', icon: Icons.place),
-            ...widget.section.blocks.indexed.map((entry) {
-              final (index, b) = entry;
+            ...activityEntries.map((entry) {
+              final index = entry.index;
+              final b = entry.block;
               if (b is PlaceBlock) {
                 return Padding(
                   key: _targetKey(_placeTargetId(b, index)),
@@ -952,6 +990,36 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
         ],
       ),
     );
+  }
+
+  List<({int index, Block block})> _activityEntries() {
+    final entries = widget.section.blocks.indexed
+        .map((entry) => (index: entry.$1, block: entry.$2))
+        .toList();
+
+    if (!widget.sortActivitiesByTime) return entries;
+
+    entries.sort((a, b) {
+      final aTime = _activitySortTime(a.block);
+      final bTime = _activitySortTime(b.block);
+
+      if (aTime != null && bTime != null) {
+        final timeOrder = _compareTimes(aTime, bTime);
+        if (timeOrder != 0) return timeOrder;
+      } else if (aTime != null) {
+        return -1;
+      } else if (bTime != null) {
+        return 1;
+      }
+
+      return a.index.compareTo(b.index);
+    });
+
+    return entries;
+  }
+
+  TimeOfDay? _activitySortTime(Block block) {
+    return block is PlaceBlock ? _parseTimeOfDay(block.startTime) : null;
   }
 
   Widget _buildDaySummary(ThemeData theme) {
@@ -1166,12 +1234,23 @@ class _DayViewState extends State<DayView> with AutomaticKeepAliveClientMixin {
   }
 
   TimeOfDay? _parseTimeOfDay(String? value) {
-    if (value == null || value.isEmpty) return null;
-    final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(value);
+    if (value == null || value.trim().isEmpty) return null;
+    final match = RegExp(
+      r'^\s*(\d{1,2}):(\d{2})(?:\s*([AaPp][Mm]))?',
+    ).firstMatch(value);
     if (match == null) return null;
-    final hour = int.tryParse(match.group(1)!);
+    var hour = int.tryParse(match.group(1)!);
     final minute = int.tryParse(match.group(2)!);
     if (hour == null || minute == null) return null;
+    final meridiem = match.group(3)?.toLowerCase();
+    if (meridiem != null) {
+      if (hour < 1 || hour > 12) return null;
+      if (meridiem == 'am') {
+        if (hour == 12) hour = 0;
+      } else if (hour != 12) {
+        hour += 12;
+      }
+    }
     if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
     return TimeOfDay(hour: hour, minute: minute);
   }
