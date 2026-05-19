@@ -529,12 +529,19 @@ class TripPageState extends State<TripPage> {
           ),
           PopupMenuButton(
             itemBuilder: (context) => [
-              CheckedPopupMenuItem(
+              PopupMenuItem(
                 value: 'sortActivitiesByTime',
-                checked: _sortActivitiesByTime,
-                child: const ListTile(
-                  leading: Icon(Icons.schedule),
-                  title: Text('Sort activities by time'),
+                child: ListTile(
+                  leading: Icon(
+                    _sortActivitiesByTime
+                        ? Icons.format_list_numbered
+                        : Icons.schedule,
+                  ),
+                  title: Text(
+                    _sortActivitiesByTime
+                        ? 'Use itinerary order'
+                        : 'Sort activities by time',
+                  ),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
