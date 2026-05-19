@@ -40,8 +40,16 @@ class PlaceMetadata {
     required this.rating,
     required this.numRatings,
   });
-  factory PlaceMetadata.fromJson(Map<String, dynamic> json) =>
-      _$PlaceMetadataFromJson(json);
+  factory PlaceMetadata.fromJson(Map<String, dynamic> json) => PlaceMetadata(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        name: _stringValue(json['name']),
+        placeId: _stringValue(json['placeId']),
+        generatedDescription: _optionalString(json['generatedDescription']),
+        description: _optionalString(json['description']),
+        imageKeys: _stringList(json['imageKeys'] ?? json['image_keys']),
+        rating: (json['rating'] as num?)?.toDouble(),
+        numRatings: (json['numRatings'] as num?)?.toInt(),
+      );
 }
 
 @JsonSerializable()
@@ -283,8 +291,21 @@ class PlaceBlock extends Block {
     super.expenseId,
   }) : super(type: 'place');
 
-  factory PlaceBlock.fromJson(Map<String, dynamic> json) =>
-      _$PlaceBlockFromJson(json);
+  factory PlaceBlock.fromJson(Map<String, dynamic> json) => PlaceBlock(
+        place: GooglePlace.fromJson(_jsonMap(json['place'])),
+        hotel: json['hotel'] == null
+            ? null
+            : Hotel.fromJson(_jsonMap(json['hotel'])),
+        startTime: _optionalString(json['startTime']),
+        endTime: _optionalString(json['endTime']),
+        description: _optionalString(json['description']),
+        text: json['text'] == null
+            ? null
+            : TextContainer.fromJson(_jsonMap(json['text'])),
+        imageKeys: _stringList(json['imageKeys'] ?? json['image_keys']),
+        price: _tryExpenseFromJson(json['price']),
+        expenseId: (json['expenseId'] as num?)?.toInt(),
+      );
 }
 
 @JsonSerializable()
@@ -315,8 +336,12 @@ class NoteBlock extends Block {
   final TextContainer text;
   NoteBlock({required this.text, super.imageKeys, super.price, super.expenseId})
       : super(type: 'note');
-  factory NoteBlock.fromJson(Map<String, dynamic> json) =>
-      _$NoteBlockFromJson(json);
+  factory NoteBlock.fromJson(Map<String, dynamic> json) => NoteBlock(
+        text: TextContainer.fromJson(_jsonMap(json['text'])),
+        imageKeys: _stringList(json['imageKeys'] ?? json['image_keys']),
+        price: _tryExpenseFromJson(json['price']),
+        expenseId: (json['expenseId'] as num?)?.toInt(),
+      );
 }
 
 @JsonSerializable()
@@ -333,8 +358,12 @@ class Airline {
     required this.localizedName,
   });
 
-  factory Airline.fromJson(Map<String, dynamic> json) =>
-      _$AirlineFromJson(json);
+  factory Airline.fromJson(Map<String, dynamic> json) => Airline(
+        iata: _optionalString(json['iata']),
+        icao: _optionalString(json['icao']),
+        name: _optionalString(json['name']),
+        localizedName: _optionalString(json['localizedName']),
+      );
 }
 
 @JsonSerializable()
@@ -415,8 +444,14 @@ class Airport {
       required this.cityName,
       this.googlePlace});
 
-  factory Airport.fromJson(Map<String, dynamic> json) =>
-      _$AirportFromJson(json);
+  factory Airport.fromJson(Map<String, dynamic> json) => Airport(
+        iata: _stringValue(json['iata']),
+        name: _stringValue(json['name']),
+        cityName: _stringValue(json['cityName']),
+        googlePlace: json['googlePlace'] == null
+            ? null
+            : GooglePlace.fromJson(_jsonMap(json['googlePlace'])),
+      );
 }
 
 @JsonSerializable()
@@ -429,8 +464,11 @@ class DepartArrive {
 
   DepartArrive({required this.date, required this.time, required this.airport});
 
-  factory DepartArrive.fromJson(Map<String, dynamic> json) =>
-      _$DepartArriveFromJson(json);
+  factory DepartArrive.fromJson(Map<String, dynamic> json) => DepartArrive(
+        date: _stringValue(json['date']),
+        time: _stringValue(json['time']),
+        airport: Airport.fromJson(_jsonMap(json['airport'])),
+      );
 }
 
 @JsonSerializable()
@@ -444,7 +482,11 @@ class DepartArrivePlace {
       {required this.date, required this.time, required this.place});
 
   factory DepartArrivePlace.fromJson(Map<String, dynamic> json) =>
-      _$DepartArrivePlaceFromJson(json);
+      DepartArrivePlace(
+        date: _stringValue(json['date']),
+        time: _optionalString(json['time']),
+        place: GooglePlace.fromJson(_jsonMap(json['place'])),
+      );
 }
 
 @JsonSerializable()
@@ -457,8 +499,10 @@ class FlightInfo {
     required this.number,
   });
 
-  factory FlightInfo.fromJson(Map<String, dynamic> json) =>
-      _$FlightInfoFromJson(json);
+  factory FlightInfo.fromJson(Map<String, dynamic> json) => FlightInfo(
+        airline: Airline.fromJson(_jsonMap(json['airline'])),
+        number: (json['number'] as num?)?.toInt() ?? 0,
+      );
 
   String? get airlineCode {
     final iata = airline.iata?.trim();
@@ -506,8 +550,15 @@ class FlightBlock extends Block {
     super.expenseId,
   }) : super(type: 'flight');
 
-  factory FlightBlock.fromJson(Map<String, dynamic> json) =>
-      _$FlightBlockFromJson(json);
+  factory FlightBlock.fromJson(Map<String, dynamic> json) => FlightBlock(
+        flightInfo: FlightInfo.fromJson(_jsonMap(json['flightInfo'])),
+        depart: DepartArrive.fromJson(_jsonMap(json['depart'])),
+        arrive: DepartArrive.fromJson(_jsonMap(json['arrive'])),
+        confirmationNumber: _optionalString(json['confirmationNumber']),
+        imageKeys: _stringList(json['imageKeys'] ?? json['image_keys']),
+        price: _tryExpenseFromJson(json['price']),
+        expenseId: (json['expenseId'] as num?)?.toInt(),
+      );
 }
 
 @JsonSerializable()
@@ -522,7 +573,11 @@ class Hotel {
     required this.confirmationNumber,
   });
 
-  factory Hotel.fromJson(Map<String, dynamic> json) => _$HotelFromJson(json);
+  factory Hotel.fromJson(Map<String, dynamic> json) => Hotel(
+        checkIn: _optionalString(json['checkIn']),
+        checkOut: _optionalString(json['checkOut']),
+        confirmationNumber: _optionalString(json['confirmationNumber']),
+      );
 }
 
 @JsonSerializable()
@@ -542,8 +597,15 @@ class TransitBlock extends Block {
     super.expenseId,
   });
 
-  factory TransitBlock.fromJson(Map<String, dynamic> json) =>
-      _$TransitBlockFromJson(json);
+  factory TransitBlock.fromJson(Map<String, dynamic> json) => TransitBlock(
+        depart: DepartArrivePlace.fromJson(_jsonMap(json['depart'])),
+        arrive: DepartArrivePlace.fromJson(_jsonMap(json['arrive'])),
+        confirmationNumber: _optionalString(json['confirmationNumber']),
+        carrier: _optionalString(json['carrier']),
+        type: _stringValue(json['type']),
+        price: _tryExpenseFromJson(json['price']),
+        expenseId: (json['expenseId'] as num?)?.toInt(),
+      );
 }
 
 @JsonSerializable()
@@ -622,3 +684,7 @@ List<dynamic> _jsonList(dynamic value) {
 List<String> _stringList(dynamic value) {
   return _jsonList(value).whereType<String>().toList();
 }
+
+String _stringValue(dynamic value) => value is String ? value : '';
+
+String? _optionalString(dynamic value) => value is String ? value : null;

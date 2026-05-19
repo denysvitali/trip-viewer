@@ -55,20 +55,24 @@ class SavedTrip {
 
   factory SavedTrip.fromJson(Map<String, dynamic> json) {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final tripId = json['tripId'] as String?;
-    final addedAt = (json['addedAt'] as num?)?.toInt();
+    final provider = json['provider'];
+    final tripId = json['tripId'];
+    final addedAt = _optionalInt(json['addedAt']);
 
     return SavedTrip(
-      provider: TripProvider.fromJson(json['provider'] as String?),
-      tripId: tripId ?? '',
-      title: json['title'] as String?,
-      placeCount: (json['placeCount'] as num?)?.toInt(),
-      startDate: json['startDate'] as String?,
-      endDate: json['endDate'] as String?,
-      firstImageKey: json['firstImageKey'] as String?,
+      provider: TripProvider.fromJson(provider is String ? provider : null),
+      tripId: tripId is String ? tripId : '',
+      title: _optionalString(json['title']),
+      placeCount: _optionalInt(json['placeCount']),
+      startDate: _optionalString(json['startDate']),
+      endDate: _optionalString(json['endDate']),
+      firstImageKey: _optionalString(json['firstImageKey']),
       addedAt: addedAt ?? now,
-      lastAccessedAt:
-          (json['lastAccessedAt'] as num?)?.toInt() ?? addedAt ?? now,
+      lastAccessedAt: _optionalInt(json['lastAccessedAt']) ?? addedAt ?? now,
     );
   }
 }
+
+String? _optionalString(dynamic value) => value is String ? value : null;
+
+int? _optionalInt(dynamic value) => value is num ? value.toInt() : null;

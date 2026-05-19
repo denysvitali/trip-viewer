@@ -54,10 +54,13 @@ void main() {
 
   test('SavedTrip.fromJson tolerates legacy incomplete entries', () {
     final savedTrip = SavedTrip.fromJson({
-      'provider': null,
+      'provider': 1,
       'tripId': null,
-      'addedAt': null,
-      'lastAccessedAt': null,
+      'title': false,
+      'placeCount': 'many',
+      'startDate': ['2026-05-01'],
+      'addedAt': 'recently',
+      'lastAccessedAt': 'recently',
     });
 
     expect(savedTrip.provider, TripProvider.wanderlog);
@@ -77,21 +80,54 @@ void main() {
               'heading': 'Day 1',
               'blocks': [
                 {
-                  'type': 'unknown',
+                  'type': 'place',
+                  'place': {'name': 'Null Island'},
                   'imageKeys': [null, 'image-1'],
                   'price': {'amount': null},
+                },
+                {
+                  'type': 'note',
+                  'image_keys': [null, 'image-2'],
+                  'text': null,
+                },
+                {
+                  'type': 'flight',
+                  'flightInfo': {
+                    'airline': {'iata': 'MU'},
+                    'number': 244,
+                  },
+                  'depart': {'airport': {}},
+                  'arrive': {'airport': {}},
+                  'imageKeys': [null, 'image-3'],
                 },
               ],
             },
           ],
         },
       },
+      'resources': {
+        'placeMetadata': [
+          {
+            'id': null,
+            'name': 'Null Island',
+            'placeId': 'place-1',
+            'imageKeys': [null, 'image-4'],
+          },
+        ],
+      },
     });
 
     expect(plan.tripPlan.title, 'Sparse trip');
-    expect(plan.resources.placeMetadata, isEmpty);
-    expect(plan.tripPlan.itinerary.sections.single.blocks.single.imageKeys,
-        ['image-1']);
+    expect(plan.resources.placeMetadata.single.imageKeys, ['image-4']);
+    expect(
+      plan.tripPlan.itinerary.sections.single.blocks
+          .map((block) => block.imageKeys),
+      [
+        ['image-1'],
+        ['image-2'],
+        ['image-3'],
+      ],
+    );
     expect(plan.tripPlan.itinerary.budget.expenses, isEmpty);
   });
 }
