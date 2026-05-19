@@ -24,6 +24,8 @@ class PlaceBlockWidget extends StatefulWidget {
 }
 
 class _PlaceBlockWidgetState extends State<PlaceBlockWidget> {
+  static const double _compactHeight = 112;
+
   bool _isExpanded = false;
 
   @override
@@ -31,10 +33,13 @@ class _PlaceBlockWidgetState extends State<PlaceBlockWidget> {
     final theme = Theme.of(context);
 
     if (widget.compact) {
-      return GenericBlock(
-        block: widget.placeBlock,
-        accentColor: AppTheme.placeColor,
-        child: _buildCompactRow(theme),
+      return SizedBox(
+        height: _compactHeight,
+        child: GenericBlock(
+          block: widget.placeBlock,
+          accentColor: AppTheme.placeColor,
+          child: _buildCompactRow(theme),
+        ),
       );
     }
 
@@ -162,7 +167,7 @@ class _PlaceBlockWidgetState extends State<PlaceBlockWidget> {
                   const SizedBox(height: 4),
                   Text(
                     details,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
@@ -170,31 +175,41 @@ class _PlaceBlockWidgetState extends State<PlaceBlockWidget> {
                   ),
                 ],
                 const SizedBox(height: 6),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    if (widget.metadata?.rating != null)
-                      _buildCompactMeta(
-                        theme,
-                        Icons.star_rounded,
-                        '${widget.metadata!.rating}',
-                        iconColor: Colors.amber,
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.bottomLeft,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          if (widget.metadata?.rating != null) ...[
+                            _buildCompactMeta(
+                              theme,
+                              Icons.star_rounded,
+                              '${widget.metadata!.rating}',
+                              iconColor: Colors.amber,
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          if (widget.expense != null) ...[
+                            _buildCompactMeta(
+                              theme,
+                              Icons.receipt_outlined,
+                              widget.expense!.amount.format(),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          if (widget
+                              .placeBlock.place.formattedAddress.isNotEmpty)
+                            _buildCompactMeta(
+                              theme,
+                              Icons.location_on_outlined,
+                              widget.placeBlock.place.formattedAddress,
+                            ),
+                        ],
                       ),
-                    if (widget.expense != null)
-                      _buildCompactMeta(
-                        theme,
-                        Icons.receipt_outlined,
-                        widget.expense!.amount.format(),
-                      ),
-                    if (widget.placeBlock.place.formattedAddress.isNotEmpty)
-                      _buildCompactMeta(
-                        theme,
-                        Icons.location_on_outlined,
-                        widget.placeBlock.place.formattedAddress,
-                      ),
-                  ],
+                    ),
+                  ),
                 ),
               ],
             ),
