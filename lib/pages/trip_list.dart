@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -18,16 +20,25 @@ class TripListPage extends StatefulWidget {
 class _TripListPageState extends State<TripListPage> {
   List<SavedTrip> _trips = [];
   bool _isLoading = true;
+  bool _didRunLegacyMigration = false;
 
   @override
   void initState() {
     super.initState();
-    _loadTrips();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_loadTrips(migrateLegacyTrip: true));
+    });
   }
 
-  Future<void> _loadTrips() async {
-    setState(() => _isLoading = true);
-    await TripStorageService.migrateLegacyTripId();
+  Future<void> _loadTrips({bool migrateLegacyTrip = false}) async {
+    if (!_isLoading) {
+      setState(() => _isLoading = true);
+    }
+    if (migrateLegacyTrip && !_didRunLegacyMigration) {
+      await TripStorageService.migrateLegacyTripId();
+      _didRunLegacyMigration = true;
+    }
     final trips = await TripStorageService.getSavedTrips();
     if (mounted) {
       setState(() {
