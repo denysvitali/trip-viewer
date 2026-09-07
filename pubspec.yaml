@@ -38,15 +38,15 @@ dependencies:
   cupertino_icons: ^1.0.6
   http: ^1.2.1
   url_launcher: ^6.2.6
-  cached_network_image: ^3.3.1
+  cached_network_image: ^4.0.0
   shared_preferences: ^2.2.0
   json_serializable: ^6.9.0
   json_annotation: ^4.9.0
   intl: any
-  maplibre_gl: ^0.26.0
+  maplibre_gl: ^0.27.0
   geolocator: ^14.0.0
-  geocoding: ^4.0.0
-  shimmer: ^3.0.0
+  geocoding: ^5.0.0
+  shimmer: ^4.0.0
   timeago: ^3.6.1
   sentry_flutter: ^9.14.0
 
